@@ -55,6 +55,13 @@ It should feel like a **real shop desk**, not a log viewer. The page is a warm p
 
    **Why:** a slow answer can lose the sale.
 
+6. **Priority payments, flagged and earmarked.** A priority bill is one that is paid first when cash is short: rent, which keeps the shop's space (shop rule 5).
+   - **The flag:** when a run ends with rent waiting for my approval, it is marked **Priority payment** in red in three places: the ticket card, the ticket header, and the approval card, which reads "Approve priority payment" and gives the reason. The toast also says "PRIORITY payment needs your approval".
+   - **The meter:** the checking meter in the header shades the earmarked amount in red stripes at the end of the fill. The caption reads "$2,400.00 earmarked for priority · $1,000.00 free". The cash log lists each earmark.
+   - **Approving:** the shading disappears and the balance drains.
+
+   **Why:** at a glance I can see how much of the balance is already spoken for before I approve anything else. After this run, that would have shown that paying invoice 501 *and* the rent leaves only $160.
+
 ## How the agents read differently
 
 Each agent has its **own color, its own icon, and its own voice**, so you can tell who is talking without reading the name.
@@ -92,6 +99,7 @@ When a ticket is resolved, which the backend decides:
 
 ## How cash shows up
 
+- **Money already spoken for shows in red.** While a priority payment (rent) waits for approval, its amount is shaded red at the end of the checking meter, with "earmarked for priority · free" underneath.
 - **The checking balance is always in the header.** A thin meter under it shows the balance against the starting amount, with a gold line at the **$500 cash buffer**. The card turns amber if checking drops below the buffer.
 - **When a payment is approved, the number visibly drains.** It counts down from the old balance to the new one over about a second, and a red **−$2,400.00** tag pops up next to it. The drop is meant to be felt, because a person just moved real money.
 - **Payments and purchase orders use the same card.** A purchase order shows the items (e.g. "PO 1: 12 × CC-HOOD-NAVY size M at $22.00") and its expected arrival.

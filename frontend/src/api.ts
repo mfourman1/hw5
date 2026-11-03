@@ -62,6 +62,8 @@ export interface PaymentProposal {
   ok: boolean;
   problems: string[];
   proposal_note: string;
+  priority?: boolean; // a priority bill (rent): paid first when cash is short
+  priority_reason?: string | null;
   // purchase orders only
   sku?: string;
   size?: string;
@@ -95,7 +97,17 @@ export interface Ticket {
     reply_by?: string | null; // inquiries: 24 hours after the ticket came in
   };
   pending_payments: PaymentProposal[];
+  priority: boolean; // a priority payment on this ticket is waiting for approval
   last_run: LastRun | null;
+}
+
+export interface Earmark {
+  ticket_id: number;
+  kind: string;
+  ref_id: number;
+  payee: string;
+  amount: number;
+  reason: string | null;
 }
 
 export interface Cash {
@@ -105,6 +117,9 @@ export interface Cash {
   shop_date: string;
   cash_buffer: number;
   below_buffer: boolean;
+  earmarked: number; // set aside for priority payments (rent) waiting for approval
+  earmarks: Earmark[];
+  free_after_earmarks: number;
 }
 
 export interface ToolCall {

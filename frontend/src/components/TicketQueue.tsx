@@ -73,6 +73,7 @@ export function TicketQueue({ tickets, selectedId, onSelect }: { tickets: Ticket
                     {t.desk_state === "running" && <span className="pulse-dot" aria-hidden />}
                     {DESK_LABEL[t.desk_state]}
                   </span>
+                  {t.priority && <span className="priority-chip">Priority payment</span>}
                 </div>
                 {!t.open && (
                   <span className="stamp" aria-hidden>

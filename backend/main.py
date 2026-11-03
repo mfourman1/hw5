@@ -15,7 +15,8 @@ Routes (also listed at http://localhost:8000/ and documented at /docs)
     GET  /api/events                      recent agent events: what each agent said and which tools it used
     GET  /api/payments/pending            payments and purchase orders the agents proposed that wait for a person
     POST /api/payments/approve            a person approves a proposed payment or purchase order: the only route that moves cash
-    GET  /api/cash                        the current checking balance (cash_accounts)
+    GET  /api/cash                        the current checking balance (cash_accounts), and how much of it
+                                          is earmarked for priority payments (rent) waiting for approval
     POST /api/reset                       put the working database back to the original values
 
 When a ticket is resolved (the desk rule)
@@ -60,6 +61,8 @@ TICKET_TASK = (
     "the requester needs one. Then report the outcome and everything a person must approve."
 )
 DASHBOARD_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]  # the React dashboard (Vite)
+# A second local copy of the board on another port (for testing) is allowed too; nothing off this machine is.
+LOCAL_ORIGIN_REGEX = r"http://(localhost|127\.0\.0\.1):\d+"
 CLOSED = ("resolved", "closed")
 # A person approving or signing off can't use a name like these (same idea as record_payment).
 AGENT_WORDS = {"boss", "inventory", "accounting", "facilities", "customer", "service",
@@ -101,7 +104,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Campus Customs backend", lifespan=lifespan)
 app.add_middleware(
-    CORSMiddleware, allow_origins=DASHBOARD_ORIGINS, allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware, allow_origins=DASHBOARD_ORIGINS, allow_origin_regex=LOCAL_ORIGIN_REGEX,
+    allow_methods=["*"], allow_headers=["*"],
 )
 
 
@@ -152,6 +156,8 @@ async def _pending(ticket_id: int | None = None) -> list[dict[str, Any]]:
             "qty": po["qty"],
             "unit_cost": po["unit_cost"],
             "expected_arrival": po.get("expected_arrival"),
+            "priority": False,
+            "priority_reason": None,
         })
     return [p for p in proposals if ticket_id is None or p["ticket_id"] == ticket_id]
 
@@ -256,6 +262,7 @@ async def list_tickets() -> dict[str, Any]:
             "desk_state": _desk_state(t, last_run, mine),
             "urgency": {k: urgency.get(k) for k in ("urgency", "deadline", "deadline_source", "days_until_deadline", "reply_by")},
             "pending_payments": mine,
+            "priority": any(p.get("priority") for p in mine),  # a priority bill (rent) waits for approval
             "last_run": last_run,
         })
     return {"shop_date": data["shop_date"], "tickets": tickets}
@@ -505,11 +512,18 @@ async def approve_payment(body: ApproveRequest) -> dict[str, Any]:
 
 @app.get("/api/cash")
 async def cash() -> dict[str, Any]:
-    """The checking balance from cash_accounts, with the shop's date and the cash buffer."""
+    """The checking balance from cash_accounts, with the shop's date, the cash buffer, and the
+    money earmarked for priority payments (rent) that are waiting for a person's approval."""
     data = await mcp("get_cash_balance")
     checking = next((a for a in data["accounts"] if a["name"] == "checking"), None)
     if checking is None:
         raise HTTPException(status_code=404, detail="There is no checking account in cash_accounts.")
+    earmarks = [
+        {"ticket_id": p["ticket_id"], "kind": p["kind"], "ref_id": p["ref_id"], "payee": p["payee"],
+         "amount": p["amount"], "reason": p.get("priority_reason")}
+        for p in await _pending() if p.get("priority")
+    ]
+    earmarked = round(sum(e["amount"] for e in earmarks), 2)
     return {
         "account": "checking",
         "balance": checking["balance"],
@@ -517,6 +531,9 @@ async def cash() -> dict[str, Any]:
         "shop_date": data["shop_date"],
         "cash_buffer": data["cash_buffer"],
         "below_buffer": checking["balance"] < data["cash_buffer"],
+        "earmarked": earmarked,
+        "earmarks": earmarks,
+        "free_after_earmarks": round(checking["balance"] - earmarked, 2),
     }
 
 

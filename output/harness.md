@@ -340,7 +340,7 @@ Problem 5 added eight tools (marked *new*) so the agents can work the open ticke
 
 ### Audit trail
 
-Every agent-loop step is appended to `output/audit_trail.json`, one JSON array that only grows. **What's in it:** the first 565 records, before the Problem 9 reset at 2026-11-03T01:50:22Z (8:50 PM ET on Nov 2), are from building and testing in Problems 5–8. They include 12 practice runs that saved nothing, one real test run on ticket 102, and two test approvals as "Smoke Test". The proposals for those two test approvals were made by calling `propose_payment` directly, to test the approve route, not by an agent run. Later resets undid their database changes. Since the final review, a payment can only be recorded through the dashboard, and only for a bill an agent proposed. Everything after that reset is the real Problem 9 run. New records are written over the closing `]`, so earlier records are never rewritten and nothing clears the file between runs.
+Every agent-loop step is appended to `output/audit_trail.json`, one JSON array that only grows. **What's in it:** everything after the last `database_reset` (2026-11-03T03:31:36Z, 10:31 PM ET on Nov 2) is my own Problem 9 run. Everything before it comes from building and testing in Problems 5–8 and the review rounds: practice runs that saved nothing, test runs, two test approvals as "Smoke Test" (their proposals were made by calling `propose_payment` directly to test the approve route), and my first Problem 9 attempt at 8:50 PM ET, where the vibe coder clicked Approve for me. Resets undid all of their database changes. Since the final review, a payment can only be recorded through the dashboard, and only for a bill an agent proposed. Everything after that reset is the real Problem 9 run. New records are written over the closing `]`, so earlier records are never rewritten and nothing clears the file between runs.
 
 Each record has:
 - `time` (UTC) and the `event`;
@@ -385,7 +385,7 @@ It runs at `http://localhost:8000`. Interactive docs are at `/docs`, and `/` lis
 - `GET /api/events`: return recent agent events from the audit trail, meaning what each agent said and which tools it used. Filter with `task_id` or `ticket_id`, and poll with `after=<last_seq>` to refresh.
 - `GET /api/payments/pending`: return the payments and purchase orders the agents proposed that are waiting for a person.
 - `POST /api/payments/approve`: a person approves a proposed payment or purchase order (`{"ticket_id": 102, "approved_by": "Full Name"}`). This records the payment and changes cash. It is the only route that moves money.
-- `GET /api/cash`: return the current checking balance from `cash_accounts`.
+- `GET /api/cash`: return the current checking balance from `cash_accounts`, plus how much of it is earmarked for priority payments (rent) waiting for approval.
 - `POST /api/reset`: put `data/campus_customs_new.db` back to the original values for a fresh run (`{"confirm": true}`). The audit trail is kept.
 
 | Method | URL | What it does | Through |
@@ -398,7 +398,7 @@ It runs at `http://localhost:8000`. Interactive docs are at `/docs`, and `/` lis
 | GET | `/api/events` | Readable audit events: who (`agent`, `depth`), what they `said`, which `tools` (with arguments), tool results, status, approvals. `limit`, `after`, `task_id`, `ticket_id`, `raw` | `output/audit_trail.json` |
 | GET | `/api/payments/pending` | Proposed payments still unpaid, and proposed purchase orders, with amount, payee, balance after, and whether it would drop below the buffer | MCP `list_payment_proposals`, `list_purchase_orders` |
 | POST | `/api/payments/approve` | A person approves the proposal on a ticket: a payment (`record_payment`) or a purchase order (`record_purchase`). It is recorded with `approved_by`, cash goes down, the invoice is marked paid or rent moves on a month, and a `payment_approved` audit record is added. Refuses an agent's name (400), a ticket with nothing pending (404), and a payment that fails its checks (409). | MCP `list_payment_proposals`, `list_purchase_orders`, `record_payment`, `record_purchase` |
-| GET | `/api/cash` | Checking balance, as-of date, shop date, the $500 buffer, and `below_buffer` | MCP `get_cash_balance` |
+| GET | `/api/cash` | Checking balance, as-of date, shop date, the $500 buffer, `below_buffer`, and `earmarked`: priority payments (rent) waiting for approval, with each one listed and the free balance after them | MCP `get_cash_balance`, `list_payment_proposals` |
 | POST | `/api/reset` | Puts `campus_customs_new.db` back to the original values (needs `{"confirm": true}`, and refuses while a run is going). Adds a `database_reset` audit record. | MCP `reset_working_copy` (desk only) |
 
 **When a ticket is resolved (the desk rule):**
@@ -417,12 +417,12 @@ The React + Vite + TypeScript desk in `frontend/` (`npm run dev` → http://loca
 
 | Area | What it does |
 |---|---|
-| **Header** | The shop's date, plus the **checking balance**. A meter marks the $500 buffer, the balance counts down visibly after a payment, and clicking it opens a cash log of every approved payment since the last reset. Also **Reset desk**. |
+| **Header** | The shop's date, plus the **checking balance**. A meter marks the $500 buffer, the balance counts down visibly after a payment, and clicking it opens a cash log of every approved payment since the last reset. Also **Reset desk**. **Priority payments** waiting for approval (rent) are shaded red at the end of the meter, captioned "$2,400.00 earmarked for priority · $1,000.00 free". |
 | **Ticket queue** | The tickets **sorted by deadline** (overdue first). Each card shows its **due date** ("Due Fri, Aug 28 · 3 days late", or "Reply by …" for inquiries), urgency, source tag and desk state. Resolved tickets get a RESOLVED stamp and sink to the bottom. |
 | **Ticket header** | The request in the requester's words, the deadline, a "Came in" source picker, and **Send to the team**, with a "Practice run" switch that saves nothing |
 | **The team** | An org chart: the Boss over four specialist desks. Each desk shows its status light, latest line and current tool, and the wires light up when an agent is called. |
 | **Live feed** | Every step as it happens: hand-offs, tool calls in plain words with their results, and each agent's closing words in its own voice. Each step shows **its time since the run started**, gaps of 5 s or more are labeled (amber at 15 s, red at 45 s), and a live line counts the wait so a hang is visible. |
-| **Your move** | The one thing a person must do now: wait, **approve a payment or purchase order** (showing amount, payee or items, and checking before → after, with a buffer warning), sign off, or nothing |
+| **Your move** | The one thing a person must do now: wait, **approve a payment or purchase order** (showing amount, payee or items, and checking before → after, with a buffer warning), sign off, or nothing A priority bill (rent) is flagged **Priority payment** in red: on the ticket card, in the ticket header, and on the approval card, with the reason. A toast says so when the run finishes. |
 | **Draft reply** | Customer Service's draft as a letter, with a Copy button |
 | **What each agent did** | One summary card per agent. Agents not called show as "Not needed". |
 
@@ -462,10 +462,10 @@ Guardrails for agents that deal with real customers and real money, and the limi
 10. **Everything is recorded.**
     - Every loop step goes in the append-only audit trail.
     - Every decision goes on the ticket as a dated, signed note that is never edited.
-    - Only the Boss resolves a ticket, and never while it waits on an approval.
+    - Only the desk resolves a ticket (see 14), never an agent, and never while it waits on an approval.
 11. **Safe testing.** `--dry-run` starts the MCP server read-only, so write tools say what they *would* do and change nothing. The original `data/campus_customs.db` is never used. The Portkey key stays in the environment and is never given to the MCP server.
 12. **The vendor hold, in code.** `get_vendor_lead_time` won't give a date for a vendor with an unpaid invoice, and both `propose_purchase_order` and `record_purchase` refuse to buy from it, so the shop never orders from a vendor that won't ship.
-13. **A person sees the effect before approving.** The dashboard's approval card shows the amount, payee, due date, and checking before → after, and warns below the buffer. The approve and sign-off routes refuse names that sound like agents, and every approval is recorded with the person's name (`payment_approved`, `ticket_resolved`).
+13. **A person sees the effect before approving.** The dashboard's approval card shows the amount, payee, due date, and checking before → after, and warns below the buffer. A priority bill (rent, paid first under shop rule 5) is flagged **Priority payment**, and its amount is shaded red on the checking meter while it waits. The approve and sign-off routes refuse names that sound like agents, and every approval is recorded with the person's name (`payment_approved`, `ticket_resolved`).
 14. **Resolving follows a fixed desk rule** in the backend, not an agent's say-so:
     - **Nothing waiting:** a ticket is resolved automatically only when the team finishes with nothing waiting on a person.
     - **Payment waiting:** if a payment is waiting, the ticket is resolved only after a person approves it.
@@ -488,28 +488,34 @@ Guardrails for agents that deal with real customers and real money, and the limi
 | Task text passed between agents | 2,000 characters | `MAX_TASK_CHARS` |
 | Ticket note length | 500 characters | MCP server |
 
-When a limit is hit, the whole task stops with `stop_reason: usage_limit`, and that is recorded in the audit trail. Instead of carrying on unchecked, the run ends. For scale, the real Problem 9 runs each used 14–22 model requests and 67,000–102,000 tokens, well inside the 50-request and 400,000-token caps.
+When a limit is hit, the whole task stops with `stop_reason: usage_limit`, and that is recorded in the audit trail. Instead of carrying on unchecked, the run ends. For scale, my Problem 9 runs each used 8–18 model requests and 41,000–95,000 tokens, well inside the 50-request and 400,000-token caps.
 
 ---
 
 ## Problem 9: resolving the three tickets
 
-**Setup:** the working database was reset to the original values (`POST /api/reset`), so checking started at **$3,400.00**. Then all three tickets were run on the board in queue order (#101, #103, #102) until each was resolved. Mitchell Fourman approved the payments. Every step is in `output/audit_trail.json`.
+**Setup:** I reset the working database to the original values with **Reset desk** on the board, so checking started at **$3,400.00**. Then I ran all three tickets from the board (#101, #103, #102), and approved or signed off each one myself (Nov 2, 2026, 10:31–10:39 PM ET). Every step is in `output/audit_trail.json`, after the `database_reset` at 2026-11-03T03:31:36Z.
 
-| Ticket | Runs | Hand-offs | Human approval | Cash change | Final status |
+| Ticket | Runs | Hand-offs | My approval | Cash change | Final status |
 |---|---|---|---|---|---|
-| **#101** Bulldog tee | 2 (`task-7c7d6f8d` blocked, `task-b1e949d0`) | Boss → Inventory, Boss → Accounting, Boss → Customer Service | $840.00 to Bulldog Print Co for invoice 501 (payment 2) | −$840.00 | resolved (payment approved) |
-| **#102** Rent due | 1 (`task-e227d990`) | Boss → Facilities, Boss → Accounting, Accounting → Facilities | $2,400.00 rent to Elm City Properties (payment 1) | −$2,400.00 | resolved (payment approved) |
-| **#103** Bulk hoodie discount | 1 (`task-09637193`) | Boss → Inventory, Boss → Accounting, Boss → Customer Service | none needed | $0.00 | resolved (run finished) |
+| **#101** Bulldog tee | 1 (`task-9206b609`, 17 requests) | Boss → Inventory, Boss → Accounting, Boss → Customer Service | Approved $840.00 to Bulldog Print Co for invoice 501 (payment 2) | −$840.00 | resolved (payment approved) |
+| **#102** Rent due | 1 (`task-fc79b4c3`, 16 requests) | Boss → Facilities, Boss → Accounting, Boss → Customer Service | Approved $2,400.00 rent to Elm City Properties (payment 1), first, as the priority bill | −$2,400.00 | resolved (payment approved) |
+| **#103** Bulk hoodie discount | 2 (`task-32e49d39`, 18 requests; `task-016e85fe`, 8 requests) | Boss → Accounting, Boss → Inventory, Boss → Customer Service; then Boss → Customer Service | Signed off, declining any discount above 10% (Accounting had priced 15% unasked) | $0.00 | resolved (signed off) |
 
-**Cash:** $3,400.00 − $0.00 − $2,400.00 − $840.00 = **$160.00**. That matches `cash_accounts` and the $3,240.00 in `payments`. It is $340 below the $500 buffer, which was flagged before the invoice 501 approval and approved knowingly.
+**Cash:** $3,400.00 − $0.00 − $2,400.00 − $840.00 = **$160.00**. That matches `cash_accounts` and the $3,240.00 in `payments`. It is $340 below the $500 buffer, which the approval card warned me about before I approved invoice 501.
 
-**What changed during the run:** ticket 101's first run stalled. Accounting wouldn't propose paying invoice 501 until someone proved the linked invoice was this order's restock. So I added to shop rule 6 that a ticket's linked invoice *is* its bill, with matching lines in the Boss, Accounting and Inventory prompts. The second run proposed the payment.
+**Earlier attempts:** a first Problem 9 attempt at 8:50 PM ET, before my final review fixes, is still in the audit trail. In that attempt the vibe coder clicked Approve for me. It also showed two gaps:
+- ticket 101 stalled until I clarified that a ticket's linked invoice is its bill;
+- Inventory gave the 12 hoodies a date even though the vendor had an unpaid invoice.
+
+Both are fixed in this run.
+
+**After the run, at my request:** the board flags a priority bill (rent) as a **Priority payment** when it is waiting for my approval. It also shades the earmarked amount red on the checking meter. See [Dashboard](#dashboard).
 
 **The results, saved:**
 
 | File | What it holds |
 |---|---|
-| `output/desk_tickets.html` | Expected vs. Actual for each ticket, and the Cash tab |
-| `output/resolved_tickets.json` | Each ticket's final status, outcome, each agent's part, and the human approvals |
+| `output/desk_tickets.html` | Expected vs. Actual for each ticket, the Cash tab, and the Reflection |
+| `output/resolved_tickets.json` | Each ticket's final status, outcome, each agent's part, and my approvals |
 | `output/resolved_board.html` | A screenshot of the board for each resolved ticket, in `output/resolved_board_images/` |

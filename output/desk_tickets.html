@@ -200,7 +200,7 @@
 
 <header>
   <h1>Campus Customs: Desk Tickets</h1>
-  <p>Shop date 2026-08-31 (<code style="background:rgba(255,255,255,.12);color:#fff">desk.date_today</code>). The Expected plans were written before the backend was wired (Problem 6). Actual comes from the real run in Problem 9: the database was reset, then all three tickets were run on the board until resolved (Nov 2, 2026, 8:50–8:57 PM ET). Every step is in <code style="background:rgba(255,255,255,.12);color:#fff">output/audit_trail.json</code>.</p>
+  <p>Shop date 2026-08-31 (<code style="background:rgba(255,255,255,.12);color:#fff">desk.date_today</code>). The Expected plans were written before the backend was wired (Problem 6). Actual comes from my own Problem 9 run. I reset the database, ran all three tickets from the board, and approved and signed off each one myself (Nov 2, 2026, 10:31–10:39 PM ET). Every step is in <code style="background:rgba(255,255,255,.12);color:#fff">output/audit_trail.json</code>.</p>
   <div role="tablist" aria-label="Desk tickets">
     <button role="tab" id="tab-101" aria-controls="panel-101" aria-selected="true">Ticket 101 <small>· order</small></button>
     <button role="tab" id="tab-102" aria-controls="panel-102" aria-selected="false" tabindex="-1">Ticket 102 <small>· rent</small></button>
@@ -286,21 +286,21 @@
 
   <div class="card actual-card filled">
     <h2 class="section"><span class="tag done">Actual</span> What the agents actually did</h2>
-    <div class="run-box-note"><strong>This ticket took two runs.</strong>
-      <ul>
-        <li><strong>Run 1</strong> (<code>task-7c7d6f8d</code>, 60 s, 22 model requests, 101,711 tokens, 4 hand-offs) ended <code>blocked</code>. The Boss asked Accounting to propose payment "only if relevant". Accounting then asked Inventory (<span class="agent accounting">Accounting</span> → <span class="agent inventory">Inventory</span>) to confirm that invoice 501 really funds this order. Inventory said the invoice record can't prove it, so <strong>no payment was proposed</strong>.</li>
-        <li><strong>The fix:</strong> I added to shop rule 6 that an invoice linked to a ticket <em>is</em> that ticket's bill, and for an order it is the restock the order is waiting on. I made the matching edits to the Boss, Accounting and Inventory prompts.</li>
-        <li><strong>Run 2</strong> (<code>task-b1e949d0</code>, 42 s, 15 model requests, 75,921 tokens, 3 hand-offs) went as planned. The details below are from run 2.</li>
-      </ul></div>
+    <p class="runline">One run, started from the board: <code>task-9206b609</code>. 41 s, 17 model requests, 89,095 tokens, 3 hand-offs.</p>
     <div class="actual-grid">
       <div>Boss's first call</div>
-      <div><span class="agent inventory">Inventory</span>, in the same step as <span class="agent accounting">Accounting</span>, after reading the ticket itself (<code>get_ticket</code>, <code>get_ticket_urgency</code>). Run 1 also called Inventory first.</div>
+      <div><span class="agent inventory">Inventory</span>, sent in the same step as <span class="agent accounting">Accounting</span>, after the Boss read the ticket itself (<code>get_ticket</code>, <code>get_ticket_urgency</code> → overdue, −3 days).</div>
 
       <div>Delegations</div>
       <div><ol>
-        <li><span class="agent boss">Boss</span> → <span class="agent inventory">Inventory</span>: "verify stock on hand for CC-TEE-WHITE size S… Invoice 501 is linked to this order and describes the reprint." Inventory reported 0 on hand, invoice 501 unpaid and 3 days overdue, and earliest arrival 5 days after payment.</li>
-        <li><span class="agent boss">Boss</span> → <span class="agent accounting">Accounting</span>: "This linked invoice is the order's restock under shop rules… propose payment if unpaid." Accounting <strong>proposed $840</strong> and flagged that checking would drop to $160, under the $500 buffer.</li>
-        <li><span class="agent boss">Boss</span> → <span class="agent customer_service">Customer Service</span>: draft a reply to Tauhid. The draft says size S is unavailable and that timing will be confirmed. It promises no date.</li>
+        <li><span class="agent boss">Boss</span> → <span class="agent inventory">Inventory</span>: stock for size S and whether the restock is coming. Result:
+          <ul>
+            <li>0 on hand.</li>
+            <li>Invoice 501 is open and 3 days overdue.</li>
+            <li><strong>Bulldog Print Co is on hold</strong> until invoice 501 is paid, then needs 5 days. So no calendar date was given.</li>
+          </ul></li>
+        <li><span class="agent boss">Boss</span> → <span class="agent accounting">Accounting</span>: check invoice 501 and cash. It <strong>proposed $840</strong>, leaving $2,560. That was checking at the time, before the rent was paid.</li>
+        <li><span class="agent boss">Boss</span> → <span class="agent customer_service">Customer Service</span>: draft a reply to Tauhid. The draft says size S is out of stock with no confirmed date yet. It mentions no unpaid bills.</li>
       </ol>
       Not called: <span class="agent off">Facilities</span>.</div>
 
@@ -309,53 +309,55 @@
         <li><span class="agent boss">Boss</span>
           <ul>
             <li><code>get_ticket(101)</code></li>
-            <li><code>get_ticket_urgency(101)</code> → overdue (−3 days)</li>
+            <li><code>get_ticket_urgency(101)</code> → overdue</li>
             <li><code>add_ticket_note</code></li>
           </ul></li>
         <li><span class="agent inventory">Inventory</span>
           <ul>
             <li><code>get_ticket(101)</code></li>
-            <li><code>check_stock("CC-TEE-WHITE","S")</code> → 0 on hand, Aisle B</li>
+            <li><code>check_stock("CC-TEE-WHITE","S")</code> → 0, Aisle B</li>
             <li><code>get_invoice(501)</code> → $840, open, overdue</li>
-            <li><code>get_vendor_lead_time(vendor_id=1)</code> → Bulldog Print Co, 5 days</li>
+            <li><code>get_vendor_lead_time(vendor_id=1)</code> → <strong>on hold</strong> (invoice 501), 5 days after payment</li>
             <li><code>add_ticket_note</code></li>
           </ul></li>
         <li><span class="agent accounting">Accounting</span>
           <ul>
             <li><code>get_ticket(101)</code></li>
             <li><code>get_invoice(501)</code></li>
-            <li><code>get_cash_balance()</code> → <strong>$1,000</strong> (rent had already been paid)</li>
-            <li><code>propose_payment(101,"invoice",501,840)</code> → proposed, leaves $160, <strong>below the buffer</strong></li>
+            <li><code>get_cash_balance()</code> → $3,400</li>
+            <li><code>propose_payment(101,"invoice",501,840)</code> → proposed, leaves $2,560</li>
+            <li><code>add_ticket_note</code></li>
           </ul></li>
         <li><span class="agent customer_service">Customer Service</span>
           <ul>
             <li><code>get_ticket(101)</code></li>
             <li><code>add_ticket_note</code></li>
           </ul></li>
-        <li>Not used: <code>get_lease</code>, <code>get_pricing</code>, <code>quote_bulk_price</code>, <code>list_open_tickets</code>, <code>record_payment</code></li>
+        <li>Not used: <code>get_lease</code>, <code>get_pricing</code>, <code>quote_bulk_price</code>, <code>list_open_tickets</code>. The payment tools can't be used by an agent at all.</li>
       </ul></div>
 
       <div>Outcome</div>
       <div>
         <ul>
           <li>The Boss reported <code>needs_approval</code>.</li>
-          <li><strong>Mitchell Fourman approved the $840.00 payment to Bulldog Print Co</strong> for invoice 501 (payment 2). Invoice 501 is now <code>paid</code>.</li>
-          <li>Checking went from $1,000.00 to <strong>$160.00</strong>. That is below the $500 buffer, which was flagged and approved knowingly.</li>
-          <li>The ticket was resolved as soon as the payment was approved.</li>
-          <li>The tee is still out of stock. The reprint can arrive 5 days after payment, so 2026-09-05 at the earliest.</li>
+          <li><strong>I approved the $840.00 payment to Bulldog Print Co myself on the board</strong> (10:39 PM, payment 2), right after the rent.</li>
+          <li>Checking went from $1,000.00 to <strong>$160.00</strong>. The approval card warned that this is below the $500 buffer.</li>
+          <li>Invoice 501 is <code>paid</code>, so Bulldog Print Co's hold is lifted. The tee can arrive 5 days after payment, 2026-09-05 at the earliest.</li>
+          <li>The ticket was resolved when I approved.</li>
         </ul>
       </div>
 
       <div>Matches the plan?</div>
       <div><ul class="verdict">
         <li class="ok">First call was Inventory, as planned.</li>
-        <li class="ok">The same three hand-offs (Inventory, Accounting, Customer Service), and Facilities was not called.</li>
-        <li class="ok">The expected tools were used, and <code>record_payment</code> was never called by an agent.</li>
-        <li class="diff">It needed a second run. In run 1 the agents wouldn't treat the linked invoice as this order's restock, which my plan assumed. The rule now says it outright.</li>
-        <li class="diff">Cash was $1,000, not $3,400, when Accounting checked, because the rent was paid first (rent comes first under shop rule 5). So the proposal left $160 and was flagged below the buffer. That is the cross-ticket warning my plan predicted.</li>
+        <li class="ok">Exactly the three planned hand-offs (Inventory, Accounting, Customer Service), and Facilities was not called.</li>
+        <li class="ok">The expected tools were used, and Accounting's proposal matched the plan exactly: $840, leaving $2,560.</li>
+        <li class="diff">Inventory added something the plan didn't have: the vendor is <em>on hold</em> until invoice 501 is paid. That is correct under the shop rules, which I tightened after a final review.</li>
+        <li class="diff">Cash was $1,000, not $3,400, when I approved, because I paid the rent first. So it left $160, below the buffer. That is the cross-ticket warning my plan predicted.</li>
+        <li class="diff">My plan said the ticket "stays open until the tee actually ships". Under the desk rule I added in Problem 8, it was resolved when I approved the payment, because the team had nothing left to do.</li>
         <li class="diff">Customer Service didn't run <code>check_stock</code> itself. It used Inventory's count.</li>
-        <li class="diff">My plan said the ticket "stays open until the tee actually ships". Under the desk rule I added in Problem 8, it was resolved when I approved the payment, because the team had nothing left to do. The tee is still out of stock until the reprint arrives (5 days after payment, so 2026-09-05 at the earliest).</li>
-      </ul></div>
+      </ul>
+      <p class="evidence">An earlier Problem 9 attempt at 8:50 PM, before my final fixes, needed two runs on this ticket, and the vibe coder clicked Approve for me. I replaced it with this run. Its records stay in the audit trail.</p></div>
     </div>
   </div>
 </section>
@@ -426,30 +428,30 @@
 
   <div class="card actual-card filled">
     <h2 class="section"><span class="tag done">Actual</span> What the agents actually did</h2>
-    <p class="runline">One run: <code>task-e227d990</code>. 46 s, 14 model requests, 67,392 tokens, 3 hand-offs.</p>
+    <p class="runline">One run, started from the board: <code>task-fc79b4c3</code>. 78 s, 16 model requests, 82,013 tokens, 3 hand-offs. The live feed's step timer flagged one 32-second wait, while Facilities wrote its verdict.</p>
     <div class="actual-grid">
       <div>Boss's first call</div>
       <div><span class="agent facilities">Facilities</span>, after the Boss read the ticket itself (<code>get_ticket</code>, <code>get_ticket_urgency</code> → due soon, 2 days).</div>
 
       <div>Delegations</div>
       <div><ol>
-        <li><span class="agent boss">Boss</span> → <span class="agent facilities">Facilities</span>: check the notice against lease 1. Result: <strong>verified</strong>. $2,400 to Elm City Properties for the Chapel Street shop, due 2026-09-02. The notice leaves out the payee and amount, which isn't a mismatch under shop rule 4.</li>
-        <li><span class="agent boss">Boss</span> → <span class="agent accounting">Accounting</span>: the notice is verified, so check cash and propose the rent. Accounting <strong>proposed $2,400</strong>, leaving $1,000, above the buffer.</li>
-        <li><span class="agent accounting">Accounting</span> → <span class="agent facilities">Facilities</span>: an extra re-check. Facilities answered from its own ticket note with one <code>get_ticket</code> call.</li>
+        <li><span class="agent boss">Boss</span> → <span class="agent facilities">Facilities</span>: check the notice against lease 1. Result: <strong>verified</strong>. $2,400 to Elm City Properties for the Chapel Street shop, due 2026-09-02. The email only states the timing, and leaving out the amount isn't a mismatch.</li>
+        <li><span class="agent boss">Boss</span> → <span class="agent accounting">Accounting</span>: the notice is verified, so check cash and propose the rent. It <strong>proposed $2,400</strong>, leaving $1,000, above the buffer.</li>
+        <li><span class="agent boss">Boss</span> → <span class="agent customer_service">Customer Service</span>: draft a reply to the landlord. The draft confirms receipt of the notice and the $2,400 due September 2.</li>
       </ol>
-      Not called: <span class="agent off">Inventory</span>, <span class="agent off">Customer Service</span>.</div>
+      Not called: <span class="agent off">Inventory</span>. Accounting did <em>not</em> re-ask Facilities this time, so the Problem 7 and 8 fixes held.</div>
 
       <div>MCP tools used</div>
       <div><ul>
         <li><span class="agent boss">Boss</span>
           <ul>
             <li><code>get_ticket(102)</code></li>
-            <li><code>get_ticket_urgency(102)</code> → due_soon, 2 days</li>
+            <li><code>get_ticket_urgency(102)</code> → due_soon</li>
             <li><code>add_ticket_note</code></li>
           </ul></li>
         <li><span class="agent facilities">Facilities</span>
           <ul>
-            <li><code>get_ticket(102)</code>, called twice: once in each turn</li>
+            <li><code>get_ticket(102)</code></li>
             <li><code>get_lease(1)</code> → $2,400, Elm City Properties, due 2026-09-02</li>
             <li><code>get_ticket_urgency(102)</code></li>
             <li><code>add_ticket_note</code></li>
@@ -459,28 +461,32 @@
             <li><code>get_ticket(102)</code></li>
             <li><code>get_cash_balance()</code> → $3,400</li>
             <li><code>propose_payment(102,"rent",1,2400)</code> → proposed, leaves $1,000</li>
+          </ul></li>
+        <li><span class="agent customer_service">Customer Service</span>
+          <ul>
+            <li><code>get_ticket(102)</code></li>
             <li><code>add_ticket_note</code></li>
           </ul></li>
-        <li>Not used: <code>check_stock</code>, <code>get_pricing</code>, <code>quote_bulk_price</code>, <code>get_invoice</code>, <code>get_vendor_lead_time</code>, <code>record_payment</code></li>
+        <li>Not used: <code>check_stock</code>, <code>get_pricing</code>, <code>quote_bulk_price</code>, <code>get_invoice</code>, <code>get_vendor_lead_time</code></li>
       </ul></div>
 
       <div>Outcome</div>
       <div>
         <ul>
           <li>The Boss reported <code>needs_approval</code>.</li>
-          <li><strong>Mitchell Fourman approved the $2,400.00 rent to Elm City Properties</strong> for lease 1 (payment 1). This was approved first, because rent goes first when cash is short.</li>
+          <li><strong>I approved the $2,400.00 rent to Elm City Properties myself on the board</strong> (10:39 PM, payment 1). I approved it first, because rent comes first when cash is short (shop rule 5).</li>
           <li>Checking went from $3,400.00 to <strong>$1,000.00</strong>.</li>
           <li>Lease 1's next due date moved to 2026-10-02.</li>
-          <li>The ticket was resolved as soon as the payment was approved.</li>
+          <li>The ticket was resolved when I approved.</li>
         </ul>
       </div>
 
       <div>Matches the plan?</div>
       <div><ul class="verdict">
         <li class="ok">First call was Facilities, as planned. The notice was verified before anyone talked about money.</li>
-        <li class="ok">Boss → Facilities, then Boss → Accounting. Inventory and Customer Service were not called, exactly as planned. Earlier test runs had also called Customer Service; this run didn't.</li>
-        <li class="ok">The expected tools were used, with the expected results ($2,400, leaves $1,000).</li>
-        <li class="diff">One extra hand-off: Accounting asked Facilities to confirm the lease again, even though the Boss had passed along the verdict. It only cost one short Facilities turn, but it's the same over-checking I tried to remove in Problems 7 and 8.</li>
+        <li class="ok">Boss → Facilities, then Boss → Accounting, with the planned amounts ($2,400, leaving $1,000). Inventory was not called.</li>
+        <li class="ok">No extra re-check of the lease.</li>
+        <li class="diff">Customer Service <em>was</em> called, to acknowledge the landlord's notice; my plan said it wouldn't be. I chose in Problem 7 to keep this behavior and compare it here. It's harmless and polite, but it costs a hand-off.</li>
       </ul></div>
     </div>
   </div>
@@ -560,39 +566,46 @@
 
   <div class="card actual-card filled">
     <h2 class="section"><span class="tag done">Actual</span> What the agents actually did</h2>
-    <p class="runline">One run: <code>task-09637193</code>. 44 s, 16 model requests, 73,908 tokens, 3 hand-offs.</p>
+    <p class="runline">Two runs, both started from the board:</p>
+    <ul class="runline">
+      <li><code>task-32e49d39</code>: 54 s, 18 model requests, 95,021 tokens, 3 hand-offs.</li>
+      <li>After I clicked "Run the team again", <code>task-016e85fe</code>: 33 s, 8 model requests, 40,681 tokens, 1 hand-off.</li>
+    </ul>
     <div class="actual-grid">
       <div>Boss's first call</div>
-      <div><span class="agent inventory">Inventory</span>, sent in the same step as <span class="agent accounting">Accounting</span>, after reading the ticket itself (<code>get_ticket</code>, <code>get_ticket_urgency</code> → due soon, reply by Sep 1, 4:55 PM).</div>
+      <div><span class="agent accounting">Accounting</span> and <span class="agent inventory">Inventory</span>, sent in the same step, with <strong>Accounting first</strong>. The Boss read the ticket itself first (<code>get_ticket</code>, <code>get_ticket_urgency</code> → due soon, reply by Sep 1, 4:55 PM).</div>
 
       <div>Delegations</div>
-      <div><ol>
-        <li><span class="agent boss">Boss</span> → <span class="agent inventory">Inventory</span>: stock for 20 size M, the shortfall, and restock timing. Result: 8 on hand, short 12. No restock is linked. The apparel vendor needs 5 days, so 2026-09-05 at the earliest if ordered today.</li>
-        <li><span class="agent boss">Boss</span> → <span class="agent accounting">Accounting</span>: a quote at list price and at the most allowed. Result: $58 × 20 = $1,160, or $52.20 × 20 = $1,044 at 10%. Both are <code>allowed</code>, so no manager approval is needed.</li>
-        <li><span class="agent boss">Boss</span> → <span class="agent customer_service">Customer Service</span>: draft a reply to the Yale AI Club. The draft confirms 8 are ready now, gives both quotes, and asks the club to choose.</li>
+      <div><p><strong>Run 1:</strong></p>
+      <ol>
+        <li><span class="agent boss">Boss</span> → <span class="agent accounting">Accounting</span>: quotes for 20 hoodies. It returned $1,160 at list and $1,044 at 10%, both <code>allowed</code>. <strong>Unasked</strong>, it also priced 15% ($986), which is <code>needs_human_approval</code>.</li>
+        <li><span class="agent boss">Boss</span> → <span class="agent inventory">Inventory</span>: 8 on hand, short 12. Bulldog Print Co is <strong>on hold</strong> over unpaid invoice 501, so there is no date for the 12.</li>
+        <li><span class="agent boss">Boss</span> → <span class="agent customer_service">Customer Service</span>: a draft offering the 10% price, with no restock date.</li>
       </ol>
+      <p><strong>Run 2:</strong> only <span class="agent boss">Boss</span> → <span class="agent customer_service">Customer Service</span>. The new draft also offers to "check on the 15% discount".</p>
       Not called: <span class="agent off">Facilities</span>.</div>
 
       <div>MCP tools used</div>
-      <div><ul>
+      <div><p><strong>Run 1:</strong></p>
+      <ul>
         <li><span class="agent boss">Boss</span>
           <ul>
             <li><code>get_ticket(103)</code></li>
-            <li><code>get_ticket_urgency(103)</code> → due_soon, 24-hour reply window</li>
-            <li><code>add_ticket_note</code></li>
-          </ul></li>
-        <li><span class="agent inventory">Inventory</span>
-          <ul>
-            <li><code>get_ticket(103)</code></li>
-            <li><code>check_stock("CC-HOOD-NAVY","M")</code> → 8 on hand, Aisle A</li>
-            <li><code>get_vendor_lead_time(specialty="apparel")</code> → Bulldog Print Co, 5 days, 2026-09-05</li>
+            <li><code>get_ticket_urgency(103)</code> → due_soon (24-hour reply window)</li>
             <li><code>add_ticket_note</code></li>
           </ul></li>
         <li><span class="agent accounting">Accounting</span>
           <ul>
             <li><code>get_ticket(103)</code></li>
-            <li><code>quote_bulk_price(…,20,0)</code> → $1,160, allowed</li>
-            <li><code>quote_bulk_price(…,20,10)</code> → $1,044, allowed</li>
+            <li><code>quote_bulk_price</code> at 0% → $1,160, at 10% → $1,044, at 15% → $986 (needs a manager)</li>
+            <li><code>get_pricing</code> → $58 list, $22 cost</li>
+            <li><code>add_ticket_note</code></li>
+          </ul></li>
+        <li><span class="agent inventory">Inventory</span>
+          <ul>
+            <li><code>get_ticket(103)</code></li>
+            <li><code>check_stock("CC-HOOD-NAVY","M")</code> → 8, Aisle A</li>
+            <li><code>get_vendor_lead_time(specialty="apparel")</code> → Bulldog Print Co, on hold</li>
             <li><code>add_ticket_note</code></li>
           </ul></li>
         <li><span class="agent customer_service">Customer Service</span>
@@ -600,32 +613,40 @@
             <li><code>get_ticket(103)</code></li>
             <li><code>add_ticket_note</code></li>
           </ul></li>
-        <li>Not used: <code>get_lease</code>, <code>get_invoice</code>, <code>get_cash_balance</code>, <code>propose_payment</code>, <code>record_payment</code></li>
-      </ul></div>
+      </ul>
+      <p><strong>Run 2:</strong></p>
+      <ul>
+        <li><span class="agent boss">Boss</span>
+          <ul>
+            <li><code>get_ticket</code></li>
+            <li><code>get_ticket_urgency</code></li>
+            <li><code>add_ticket_note</code></li>
+          </ul></li>
+        <li><span class="agent customer_service">Customer Service</span>
+          <ul>
+            <li><code>get_ticket</code></li>
+            <li><code>add_ticket_note</code></li>
+          </ul></li>
+      </ul>
+      <p>Not used: <code>get_lease</code>, <code>get_invoice</code>, <code>get_cash_balance</code>, <code>propose_payment</code>, <code>propose_purchase_order</code>.</p></div>
 
       <div>Outcome</div>
       <div>
         <ul>
-          <li>The Boss reported <code>done</code>, with nothing waiting on a person.</li>
-          <li>The ticket was <strong>resolved as soon as the run finished</strong>, in the Boss's name.</li>
-          <li><strong>No money moved</strong>: an inquiry has nothing to pay.</li>
-          <li>The draft reply was ready less than a minute after the run started, well inside the 24-hour reply window.</li>
+          <li>Both runs ended with the Boss at <code>needs_approval</code>: should the shop offer more than 10%? The desk showed <strong>Needs your sign-off</strong>.</li>
+          <li><strong>I signed off and declined</strong> (10:39 PM): "No discount above 10%. Send the drafted 10% offer."</li>
+          <li>The ticket was resolved in my name. <strong>No money moved.</strong></li>
+          <li>The second draft still offers to "check on the 15% discount", so I would cut that line before sending, to match my decision.</li>
         </ul>
       </div>
 
       <div>Matches the plan?</div>
       <div><ul class="verdict">
-        <li class="ok">First call was Inventory, with Accounting in the same step, as planned.</li>
-        <li class="ok">Exactly the three planned hand-offs, and Facilities was not called.</li>
-        <li class="ok">Every planned tool was used with the planned results. No payment tools were used.</li>
-        <li class="ok">Urgency came back <code>due_soon</code> with the 24-hour reply-by, matching the updated plan.</li>
-        <li class="diff">The draft gives no date for the other 12 hoodies. My plan expected "2026-09-05 at the earliest". Customer Service left it out on purpose, because no reprint has been ordered yet, which follows the "promise nothing unconfirmed" rule.</li>
-        <li class="diff"><strong>Found in a final review:</strong> Inventory reported "2026-09-05 at the earliest" for the 12 hoodies, and my plan said the same. But at that moment Bulldog Print Co still had unpaid invoice 501, and <strong>a vendor ships nothing new while it has an unpaid invoice</strong>. The right answer was "5 days after invoice 501 is paid".
-          <ul>
-            <li>I added this to shop rule 6, and <code>get_vendor_lead_time</code> now returns the vendor as <code>on_hold</code> with no date.</li>
-            <li>The club was never promised the date, because Customer Service left it out.</li>
-          </ul></li>
-        <li class="diff">The plan said the ticket would sit at <code>waiting_on_customer</code>. Under the desk rule I added in Problem 8, a finished run with nothing waiting is resolved instead.</li>
+        <li class="ok">Inventory, Accounting and Customer Service were the planned hand-offs, and Facilities was not called.</li>
+        <li class="ok">Every planned tool was used, with the planned numbers ($1,160 and $1,044). Urgency came back <code>due_soon</code> with the 24-hour reply-by, matching my updated plan.</li>
+        <li class="diff">Accounting was listed first, not Inventory, although both went out in the same step.</li>
+        <li class="diff"><strong>It needed my sign-off.</strong> My plan expected no approval, because 10% is within Accounting's limit. But Accounting volunteered a 15% quote nobody asked for, and the Boss then asked me whether to offer it, on both runs.</li>
+        <li class="diff">Inventory gave <em>no</em> date for the other 12, because the apparel vendor was on hold. My plan said "2026-09-05 at the earliest", which missed the hold. The run was more correct than the plan.</li>
       </ul></div>
     </div>
   </div>
@@ -638,31 +659,31 @@
       <h2>Cash: checking account</h2>
       <span class="urgency overdue">Ends below the $500 buffer</span>
     </div>
-    <p class="runline">From the Problem 9 run. The working database was reset, then the tickets were resolved in this order: 103, then 102, then 101. Only a person's approval moves cash (<code>POST /api/payments/approve</code>, which calls <code>record_payment</code>).</p>
+    <p class="runline">From my own Problem 9 run on the board. I reset the working database at 10:31 PM ET. The tickets resolved in this order: 103, then 102, then 101. Cash moves only when a person clicks Approve on the board (<code>POST /api/payments/approve</code> → <code>record_payment</code>, which works only on the desk's connection).</p>
 
     <table class="cash-table">
       <thead>
-        <tr><th>When</th><th>Ticket</th><th>What changed cash, and why</th><th>Approved by</th><th class="num">Change</th><th class="num">Checking after</th></tr>
+        <tr><th>When (ET)</th><th>Ticket</th><th>What changed cash, and why</th><th>Approved by</th><th class="num">Change</th><th class="num">Checking after</th></tr>
       </thead>
       <tbody>
         <tr class="start">
-          <td>8:50 PM</td><td>—</td>
-          <td><strong>Starting balance</strong> after the reset (<code>POST /api/reset</code>), read from <code>cash_accounts</code></td>
+          <td>10:31 PM</td><td>—</td>
+          <td><strong>Starting balance</strong> after the reset (Reset desk → <code>reset_working_copy</code>), read from <code>cash_accounts</code></td>
           <td>—</td><td class="num">—</td><td class="num">$3,400.00</td>
         </tr>
         <tr>
-          <td>8:52 PM</td><td><strong>#103</strong> Price inquiry</td>
-          <td>Resolved with <strong>no payment</strong>. It is an inquiry: Accounting only quoted prices ($1,160 at list or $1,044 at 10% for 20 hoodies), and no money moves until the club orders.</td>
-          <td>— (resolved when the run finished)</td><td class="num">$0.00</td><td class="num">$3,400.00</td>
+          <td>10:39 PM</td><td><strong>#103</strong> Price inquiry</td>
+          <td>Resolved with <strong>no payment</strong>. I signed it off and declined any discount over 10%. It's an inquiry: Accounting only quoted prices ($1,160 at list, $1,044 at 10% for 20 hoodies), and no money moves unless the club orders.</td>
+          <td>Mitchell Fourman (sign-off)</td><td class="num">$0.00</td><td class="num">$3,400.00</td>
         </tr>
         <tr>
-          <td>8:55 PM</td><td><strong>#102</strong> Rent notice</td>
-          <td><strong>Rent paid</strong>: lease 1, Chapel Street shop, to Elm City Properties, due 2026-09-02 (payment 1). Approved first because rent goes first when cash is short (shop rule 5).</td>
+          <td>10:39 PM</td><td><strong>#102</strong> Rent notice</td>
+          <td><strong>Rent paid</strong> (a priority payment): lease 1, Chapel Street shop, to Elm City Properties, due 2026-09-02 (payment 1). Approved first, because rent goes first when cash is short (shop rule 5).</td>
           <td>Mitchell Fourman</td><td class="num neg">−$2,400.00</td><td class="num">$1,000.00</td>
         </tr>
         <tr>
-          <td>8:56 PM</td><td><strong>#101</strong> Customer order</td>
-          <td><strong>Vendor invoice paid</strong>: invoice 501 to Bulldog Print Co, the rush reprint of CC-TEE-WHITE size S that Tauhid's order is waiting on. It was 3 days overdue (payment 2). Approved knowing it leaves checking below the $500 buffer.</td>
+          <td>10:39 PM</td><td><strong>#101</strong> Customer order</td>
+          <td><strong>Vendor invoice paid</strong> (payment 2): invoice 501 to Bulldog Print Co, the rush reprint of CC-TEE-WHITE size S that Tauhid's order is waiting on. It was 3 days overdue, and paying it lifts the vendor's hold. Approved knowing it leaves checking below the $500 buffer.</td>
           <td>Mitchell Fourman</td><td class="num neg">−$840.00</td><td class="num">$160.00</td>
         </tr>
         <tr class="total">
@@ -676,7 +697,7 @@
       <dt><code>cash_accounts</code> (checking)</dt><dd><strong>$160.00</strong>, as of 2026-08-31 <span class="pass">✓ matches the ending balance</span></dd>
       <dt><code>payments</code> rows</dt><dd>#1 rent, lease 1, $2,400.00, approved by Mitchell Fourman · #2 invoice 501, $840.00, approved by Mitchell Fourman. Total <strong>$3,240.00</strong> <span class="pass">✓ = $3,400.00 − $160.00</span></dd>
       <dt>Bills after</dt><dd>Invoice 501 is <code>paid</code>, and lease 1's next due date is 2026-10-02.</dd>
-      <dt>Cash buffer</dt><dd>$160.00 is <strong>$340.00 below</strong> the $500 buffer. Accounting flagged it on the invoice 501 proposal, and the board showed the warning before approval. Both bills were paid anyway: the rent keeps the shop open, and the overdue reprint is what the customer's order waits on.</dd>
+      <dt>Cash buffer</dt><dd>$160.00 is <strong>$340.00 below</strong> the $500 buffer. The board warned me on the invoice 501 approval card before I clicked. I paid both anyway: the rent keeps the shop open, and the overdue reprint is what the customer's order waits on.</dd>
     </dl>
   </div>
 </section>
@@ -687,98 +708,103 @@
   <!-- ---------------------------------------------------------------- Q1 -->
   <div class="card reflect">
     <h2><span class="q-num">1</span>How did the agents perform on each ticket, and why?</h2>
-    <p class="lede">I judged each ticket on four things: was it right (every number traceable to a tool), was it safe (no agent moved money or promised what we don't have), what did a person have to approve, and what did it cost (model requests and tokens from the audit trail).</p>
+    <p class="lede">I judged each ticket on four things:</p>
+    <ul>
+      <li><strong>Right:</strong> is every number traceable to a tool?</li>
+      <li><strong>Safe:</strong> did any agent move money or promise something we don't have?</li>
+      <li><strong>Approvals:</strong> what did I, the person at the desk, have to approve?</li>
+      <li><strong>Cost:</strong> how many model requests and tokens did it take? These come from the audit trail.</li>
+    </ul>
     <div class="per-ticket">
       <div>
-        <h4>#101 Bulldog tee <span class="grade mid">B: safe, but it needed a second run</span></h4>
-        <p><strong>Run 1 failed in the safe direction.</strong> The size S tee had 0 on hand, and the restock, invoice 501 ("Rush reprint CC-TEE-WHITE S"), was 3 days overdue. Even so, Accounting refused to propose paying it, because nobody could "prove" the invoice was for Tauhid's order. Accounting even pulled Inventory in to check (Accounting → Inventory). That cost 22 model requests and 101,711 tokens to reach "blocked".</p>
+        <h4>#101 Bulldog tee <span class="grade">A−: one clean run</span></h4>
+        <p>One run, 17 requests. Everything on this ticket was linked, and the team followed every link.</p>
         <ul>
-          <li><strong>What went well:</strong> nothing was promised and nothing was paid.</li>
-          <li><strong>What went badly:</strong> it was too literal. The ticket's own <code>invoice_id</code> already links the two.</li>
+          <li><strong>Inventory:</strong> found 0 of the size S tee. It also saw that Bulldog Print Co is <em>on hold</em> until overdue invoice 501 is paid, so it gave no calendar date, only "5 days after payment".</li>
+          <li><strong>Accounting:</strong> treated the linked invoice as the order's restock and proposed the $840 straight away. In my first attempt it had stalled on exactly this, until I clarified rule 6.</li>
+          <li><strong>Customer Service:</strong> told Tauhid the truth without mentioning unpaid bills.</li>
+          <li><strong>The minus:</strong> Accounting priced the payment as if it were the only bill. It said "leaves $2,560", but by the time I approved it the rent was paid, and it left $160. The approval card caught that; the agent didn't.</li>
         </ul>
-        <p><strong>Run 2, after I clarified rule 6, was textbook</strong> (15 requests).</p>
-        <ul>
-          <li><strong>Inventory:</strong> 0 on hand. The reprint can arrive 5 days after payment.</li>
-          <li><strong>Accounting:</strong> proposed $840 and, on its own, flagged that it would leave checking at $160, below the buffer.</li>
-          <li><strong>Customer Service:</strong> wrote Tauhid a reply that promises no date.</li>
-        </ul>
-        <p><strong>Human approval:</strong> I approved the $840 to Bulldog Print Co, knowing it took checking to $160.</p>
-        <p class="evidence">Evidence: <a href="#101">Ticket 101 tab</a> (Actual, both runs) and the <a href="#cash">Cash tab</a> (the −$840.00 row).</p>
+        <p><strong>My approval:</strong> I paid the $840 to Bulldog Print Co after the rent, knowing it took checking to $160, under the buffer.</p>
+        <p class="evidence">Evidence: <a href="#101">Ticket 101 tab</a> (Actual) and the <a href="#cash">Cash tab</a> (the −$840.00 row).</p>
       </div>
       <div>
-        <h4>#102 Rent due <span class="grade">A−: did the right things in the right order</span></h4>
-        <p>The team treated the landlord's email as an email, not a bill.</p>
+        <h4>#102 Rent due <span class="grade">A−: the right order, one extra courtesy</span></h4>
+        <p>16 requests. The team treated the landlord's email as an email, not a bill.</p>
         <ul>
-          <li><strong>Facilities first:</strong> it checked the email against lease 1 ($2,400 to Elm City Properties, due 2026-09-02). It correctly treated the missing amount as "use the lease", not a mismatch.</li>
-          <li><strong>Then Accounting:</strong> it checked cash ($3,400) and proposed the rent, leaving $1,000.</li>
-          <li><strong>Cost:</strong> 14 requests, the cheapest run.</li>
+          <li><strong>Facilities first:</strong> checked it against lease 1 ($2,400 to Elm City Properties, due 2026-09-02) and correctly treated the missing amount as "use the lease".</li>
+          <li><strong>Then Accounting:</strong> proposed the rent, leaving $1,000.</li>
+          <li><strong>No second lease check this time:</strong> the fixes from Problems 7 and 8 held.</li>
+          <li><strong>One unplanned hand-off:</strong> Customer Service drafted a receipt note to the landlord.</li>
+          <li><strong>One slow step:</strong> the feed's step timer flagged a 32-second wait while Facilities wrote its verdict.</li>
         </ul>
-        <p><strong>The one weakness:</strong> Accounting still asked Facilities to confirm the lease a second time. That's the same over-checking I tried to prompt away in Problems 7 and 8. It only cost one short Facilities turn.</p>
-        <p><strong>Human approval:</strong> I approved the $2,400 rent first, because rent comes first when cash is short (shop rule 5).</p>
-        <p class="evidence">Evidence: <a href="#102">Ticket 102 tab</a> (Actual, hand-off 3) and the <a href="#cash">Cash tab</a> (the −$2,400.00 row).</p>
+        <p><strong>My approval:</strong> I paid the $2,400 rent <em>first</em>, because rent comes first when cash is short (shop rule 5). Now the board flags rent as a priority payment and shades it red on the cash meter.</p>
+        <p class="evidence">Evidence: <a href="#102">Ticket 102 tab</a> (Actual) and the <a href="#cash">Cash tab</a> (the −$2,400.00 row).</p>
       </div>
       <div>
-        <h4>#103 Bulk hoodie discount <span class="grade">A: the plan, executed</span></h4>
-        <p>It was the cleanest run (16 requests, 3 hand-offs).</p>
+        <h4>#103 Bulk hoodie discount <span class="grade mid">B: right facts, an unnecessary question</span></h4>
+        <p>The facts were all right:</p>
         <ul>
-          <li><strong>Inventory:</strong> 8 of 20 on hand.</li>
-          <li><strong>Accounting:</strong> took the quotes straight from <code>quote_bulk_price</code>: $1,160 at list, $1,044 at 10%, both <code>allowed</code>.</li>
-          <li><strong>Customer Service:</strong> made a judgment call I liked. It did <em>not</em> give the club "2026-09-05", because no reprint has been ordered yet. That is rule 6 working, and it turned out even more right than it looked. Bulldog Print Co was still on hold over unpaid invoice 501, so no date was possible yet. Inventory missed that, which a final review caught (see the <a href="#103">103 tab</a>).</li>
-          <li><strong>Timing:</strong> the reply was drafted in under a minute, against a 24-hour reply window.</li>
+          <li>8 of 20 on hand;</li>
+          <li>$1,160 at list or $1,044 at 10%, both <code>allowed</code>;</li>
+          <li>no date for the other 12 while the vendor is on hold;</li>
+          <li>a reply drafted within minutes of a 24-hour window.</li>
         </ul>
-        <p><strong>Human approval:</strong> none. The 10% discount is within Accounting's own limit, so the desk rule resolved it automatically.</p>
-        <p><strong>Small nit:</strong> the Boss's summary still says the ticket "remains in progress" even though the desk rule resolved it. The agents and the backend use slightly different ideas of "done".</p>
-        <p class="evidence">Evidence: <a href="#103">Ticket 103 tab</a> (Actual) and the <a href="#cash">Cash tab</a> (the $0.00 row).</p>
+        <p><strong>The problem:</strong> Accounting also priced 15% ($986) without anyone asking. Anything over 10% needs a manager, so the Boss turned a no-approval inquiry into a sign-off request. I ran it again and the Boss asked again. That's 26 model requests over two runs for a ticket the plan expected to resolve on its own.</p>
+        <p><strong>My sign-off:</strong> I declined any discount above 10% and resolved it: "No discount above 10%. Send the drafted 10% offer." The second draft still offers to check on 15%, so I'd cut that line before sending.</p>
+        <p class="evidence">Evidence: <a href="#103">Ticket 103 tab</a> (Actual, both runs) and the <a href="#cash">Cash tab</a> (the $0.00 row).</p>
       </div>
     </div>
     <p style="margin-top:12px"><strong>Across all three:</strong></p>
     <ul>
-      <li>No agent ever called <code>record_payment</code>. Both payments are in the database with my name as approver, and the ending balance on the <a href="#cash">Cash tab</a> ($160.00) matches <code>cash_accounts</code> exactly.</li>
-      <li>The four real runs used 67 model requests and 318,932 tokens.</li>
-      <li>The feed's step timer never showed a hang. The longest wait between steps was 8 seconds, at the very start of ticket 101's first run, while the MCP server started up. No model step took longer than about 6 seconds.</li>
+      <li><strong>Who moved money:</strong> I clicked every approval on the board myself. The payment tools now work only from the board's connection, so an agent couldn't have paid even by trying.</li>
+      <li><strong>Cash:</strong> the ending balance on the <a href="#cash">Cash tab</a> ($160.00) matches <code>cash_accounts</code> exactly.</li>
+      <li><strong>Cost:</strong> my four runs used 59 model requests and 306,810 tokens.</li>
+      <li><strong>Speed:</strong> the longest wait between two steps was 32 seconds; everything else was 8 seconds or less.</li>
     </ul>
   </div>
 
   <!-- ---------------------------------------------------------------- Q2 -->
   <div class="card reflect">
     <h2><span class="q-num">2</span>How did Actual compare to the Expected plan?</h2>
-    <p class="lede">The plan got the <em>routing</em> right. Every first call was correct, and all 8 planned hand-offs happened in the final runs. What it didn't predict was the agents' <em>caution</em>: twice they didn't trust a fact a teammate had already found.</p>
+    <p class="lede">The plan got the routing almost exactly right: all 8 planned hand-offs happened. It missed two things: one agent doing <em>more</em> than asked (Accounting's 15% quote on #103), and one courtesy hand-off (Customer Service on #102).</p>
     <table>
       <thead><tr><th>Ticket</th><th>Boss's first call</th><th>Hand-offs (Expected → Actual)</th><th>Tools</th><th>Where it differed</th></tr></thead>
       <tbody>
         <tr>
           <td><strong>#101</strong></td>
-          <td>Inventory ✓ (sent in the same step as Accounting)</td>
-          <td>3 planned → 3 in run 2 ✓. Run 1 had 4, including an unplanned Accounting → Inventory.</td>
-          <td>All expected ✓. Customer Service skipped <code>check_stock</code>.</td>
+          <td>Inventory ✓ (same step as Accounting)</td>
+          <td>3 planned → the same 3 ✓</td>
+          <td>All expected ✓, with Accounting's proposal exactly as planned ($840, leaves $2,560). Customer Service skipped <code>check_stock</code>.</td>
           <td>
             <ul>
-              <li><strong>Two runs, not one.</strong> My plan assumed Accounting would see invoice 501 as the restock. It didn't until rule 6 said so.</li>
-              <li><strong>Cash at the proposal was $1,000, not $3,400</strong>, because I approved rent first. So the proposal left $160, not $2,560. That is the cross-ticket buffer warning my plan predicted.</li>
+              <li>Inventory added the vendor hold, which was correct.</li>
+              <li>I paid rent first, so the $840 actually left $160 (below the buffer). That is the cross-ticket warning my plan predicted.</li>
+              <li>It resolved on payment, not "when the tee ships".</li>
             </ul>
           </td>
         </tr>
         <tr>
           <td><strong>#102</strong></td>
           <td>Facilities ✓</td>
-          <td>2 planned → 3. The extra one was Accounting → Facilities.</td>
-          <td>All expected ✓. Facilities read the ticket twice.</td>
+          <td>2 planned → 3. The extra one was Boss → Customer Service (a landlord receipt note).</td>
+          <td>All expected ✓ ($2,400, leaves $1,000)</td>
           <td>
             <ul>
-              <li><strong>One extra re-check.</strong></li>
-              <li><strong>Customer Service was not called, exactly as planned.</strong> Earlier practice runs <em>had</em> called it for a landlord reply. I left that in on purpose in Problem 7 to see what the real run would do, and it got this right.</li>
+              <li>The only difference is the Customer Service hand-off, which I chose in Problem 7 to keep and compare.</li>
+              <li>No lease re-check this time.</li>
             </ul>
           </td>
         </tr>
         <tr>
           <td><strong>#103</strong></td>
-          <td>Inventory ✓ (same step as Accounting)</td>
-          <td>3 planned → 3 ✓</td>
-          <td>Every expected tool, with the expected numbers ✓</td>
+          <td>Accounting, with Inventory in the same step ≠ (plan: Inventory first)</td>
+          <td>3 planned → the same 3 ✓ (plus a second run with only Customer Service)</td>
+          <td>Every planned tool and number ✓, plus an unplanned 15% quote and <code>get_pricing</code></td>
           <td>
             <ul>
-              <li><strong>The draft left out the "2026-09-05 at the earliest" date</strong> that my plan included. This was the better call: no reprint has been ordered.</li>
-              <li><strong>The status differed:</strong> it ended <code>resolved</code> by the desk rule, not <code>waiting_on_customer</code>.</li>
+              <li>It needed my sign-off; the plan expected no approval.</li>
+              <li>Inventory gave no date because of the vendor hold. That was more correct than my plan's "2026-09-05 at the earliest".</li>
             </ul>
           </td>
         </tr>
@@ -793,18 +819,19 @@
     <div class="idea">
       <h4>Tickets 102 and 103 were straight lines</h4>
       <p>Both followed the same path: read the ticket, do two or three lookups, then propose or draft. Nothing needed a negotiation between departments.</p>
-      <p>One agent holding the same MCP tools could have run ticket 103 as: <code>get_ticket</code> → <code>get_ticket_urgency</code> → <code>check_stock</code> + <code>get_vendor_lead_time</code> + two <code>quote_bulk_price</code> calls → draft. I'd expect about 5–6 model requests instead of the 16 the team used.</p>
-      <p>The team pays for every hand-off. Each agent gets its own prompt and tool list, and each re-reads the ticket: ticket 103 was read 4 times (<code>get_ticket</code> by the Boss, Inventory, Accounting and Customer Service).</p>
+      <p>One agent holding the same MCP tools could have run ticket 103 as: <code>get_ticket</code> → <code>get_ticket_urgency</code> → <code>check_stock</code> + <code>get_vendor_lead_time</code> + two <code>quote_bulk_price</code> calls → draft. I'd expect about 5–6 model requests. The team used 18 on the first run and 26 over both.</p>
+      <p>The team pays for every hand-off. Each agent gets its own prompt and tool list, and each re-reads the ticket: ticket 103 was read 4 times in one run (<code>get_ticket</code> by the Boss, Accounting, Inventory and Customer Service).</p>
     </div>
     <div class="idea">
-      <h4>Every trust problem was a hand-off problem</h4>
-      <p>Every failure I fixed came from one agent not trusting a fact another agent had already found:</p>
+      <h4>Every problem I fixed was a hand-off problem</h4>
+      <p>Most of these failures were one agent not trusting a fact another agent had already found:</p>
       <ul>
-        <li>Accounting re-asking Facilities about the lease in Problems 7, 8 and on ticket 102.</li>
+        <li>Accounting re-asking Facilities about the lease in Problems 7 and 8.</li>
         <li>Customer Service re-asking Facilities in Problem 8.</li>
-        <li>Run 1 of #101, where Accounting made Inventory "prove" invoice 501.</li>
+        <li>My first Problem 9 attempt on #101, where Accounting made Inventory "prove" invoice 501.</li>
       </ul>
-      <p>A single agent would have the <code>get_lease</code> or <code>get_invoice</code> result in its own context. There would be nothing to re-verify, and no rule patches like "a verdict the Boss passes on counts as confirmed".</p>
+      <p>Each needed a prompt patch, and they held in my final run. The #103 detour is the reverse problem: Accounting answered a wider question than the Boss asked, and the Boss had to escalate it.</p>
+      <p>A single agent would have the <code>get_lease</code> or <code>get_invoice</code> result in its own context, so there would be nothing to re-verify and nothing to over-answer.</p>
     </div>
     <div class="idea">
       <h4>What the team is still worth</h4>
@@ -814,8 +841,8 @@
         <li><strong>Least privilege:</strong> only Accounting can propose payments, and Customer Service can't see costs or margins.</li>
         <li><strong>A clear audit trail:</strong> it records who did what.</li>
       </ul>
-      <p>Most of the money safety is in the tools anyway: <code>record_payment</code> is human-only, and <code>quote_bulk_price</code> and <code>propose_payment</code> enforce the limits. A single agent would be almost as safe.</p>
-      <p><strong>My take:</strong> a "desk agent" for routine one-department tickets (rent checks, simple inquiries), escalating to the full team only when departments collide. Ticket 101 is that case: stock, a vendor bill and the cash buffer all at once.</p>
+      <p>But most of the money safety is in the tools: payments only from the board's connection, a proposal required first, and discount limits in <code>quote_bulk_price</code>. A single agent would be almost as safe.</p>
+      <p><strong>My take:</strong> a "desk agent" for routine one-department tickets (rent checks, simple inquiries), escalating to the full team only when departments collide. Ticket 101 is that case: stock, a vendor hold, a vendor bill and the cash buffer all at once.</p>
     </div>
   </div>
 
@@ -828,19 +855,18 @@
       <ul>
         <li>Facilities' <code>get_lease(1)</code> shows $2,400 to Elm City Properties. Under rule 4 that is a contradiction, so the notice is flagged as a possible scam.</li>
         <li>Even if an agent tried, <code>propose_payment</code> refuses an amount that doesn't match the lease ("$2,600.00 does not match the $2,400.00 on file").</li>
-        <li>So no proposal ever reaches the approval card, and no money moves.</li>
+        <li>Without a proposal, <code>record_payment</code> refuses even at the desk, so no money moves.</li>
       </ul>
       <p>It is ticket 102's flow, used as a defense.</p>
     </div>
     <div class="idea">
-      <h4>2. The Yale AI Club counter-offers at 15% off</h4>
+      <h4>2. The Yale AI Club comes back asking for 15% off</h4>
       <p><strong>The ticket:</strong> a follow-up to #103 asking for 15% off.</p>
       <ul>
         <li><code>quote_bulk_price("CC-HOOD-NAVY", 20, 15)</code> returns $49.30 each, $986.00, with <code>needs_human_approval</code>, because it is over Accounting's 10% limit and under the 20% maximum.</li>
-        <li>The Boss puts it in "Your move" as a sign-off. Inventory still has the 8-now / 12-later facts.</li>
-        <li>Customer Service only replies once a person decides.</li>
+        <li>The Boss puts it on the board as a sign-off, and Customer Service replies only once a person decides.</li>
       </ul>
-      <p>The discount rules are enforced in code, not left to the model's judgment.</p>
+      <p>My run already showed this path working: when Accounting priced 15% on its own, the tool flagged it and it came to me as a sign-off, which I declined.</p>
     </div>
     <div class="idea">
       <h4>3. A called-in bulk order for caps</h4>
@@ -851,7 +877,7 @@
         <li><strong>Timing:</strong> it is an inquiry, so it gets the 24-hour reply-by and sorts near the top of the queue.</li>
         <li><strong>Customer Service:</strong> drafts the quote.</li>
       </ul>
-      <p>No approval or payment is needed, so it would resolve as soon as the run finishes, just like #103.</p>
+      <p>No payment is needed. If Accounting sticks to what was asked, it resolves as soon as the run finishes.</p>
     </div>
   </div>
 
@@ -875,7 +901,7 @@
             <li><code>get_order</code>;</li>
             <li><code>open_return(order_id, sku, size, qty, reason)</code>;</li>
             <li><code>restock_item(sku, size, qty)</code>, an inventory write tool, only for items Inventory marked "resaleable";</li>
-            <li><code>propose_refund</code>, plus a human-only <code>record_refund</code> that mirrors <code>record_payment</code>.</li>
+            <li><code>propose_refund</code>, plus a desk-only <code>record_refund</code> that mirrors <code>record_payment</code>.</li>
           </ul></li>
         <li><strong>Shop rules:</strong> a return window (for example 30 days), "unworn with tags", and no returns on custom or embroidered pieces.</li>
         <li><strong>Agents:</strong> a <strong>Returns</strong> agent, or a returns lane shared by Customer Service, Inventory and Accounting. Customer Service talks to the customer, Inventory inspects and restocks, Accounting proposes the refund, and a person approves it on the board.</li>
@@ -895,8 +921,8 @@
         <li><strong>MCP tools:</strong>
           <ul>
             <li><code>create_order</code>;</li>
-            <li><code>reserve_stock</code> / <code>ship_order</code>, which decrement inventory and enforce "no ship while the restock invoice is unpaid" in code, not just in the prompt;</li>
-            <li><code>record_sale</code>, so cash goes <em>up</em>, through a payment processor or a person;</li>
+            <li><code>reserve_stock</code> / <code>ship_order</code>, which decrement inventory and enforce "no ship while the vendor is on hold" in code;</li>
+            <li><code>record_sale</code>, so cash goes <em>up</em>, through a payment processor or a person at the desk;</li>
             <li><code>book_courier(vendor_id=3)</code>.</li>
           </ul></li>
         <li><strong>Agents:</strong> a <strong>Sales/Fulfillment</strong> agent, with Inventory gaining a guarded write permission.</li>
@@ -907,7 +933,7 @@
       <p><strong>The situation:</strong> after this run, checking is <strong>$160.00</strong>, $340 below the buffer, and lease 1's next rent ($2,400) is due 2026-10-02 (<a href="#cash">Cash tab</a>). The AI Club still needs 12 more hoodies.</p>
       <p><strong>What the team can do now, and why it still isn't enough:</strong></p>
       <ul>
-        <li>After a final review, Accounting can <em>propose</em> a purchase order (<code>propose_purchase_order</code>) for a person to approve (<code>record_purchase</code>). The scenario expects Accounting to prepare purchase orders, and this closes that gap.</li>
+        <li>Accounting can <em>propose</em> a purchase order (<code>propose_purchase_order</code>) for a person to approve at the desk (<code>record_purchase</code>).</li>
         <li>For the 12 hoodies, though, it would <strong>refuse today</strong>: 12 × $22 unit cost = $264, and checking has only $160.</li>
         <li>The team still can't project how much cash will be on hand by October.</li>
         <li>It can't say how to cover the $2,240 gap before rent. In this homework cash only goes out; there is no revenue.</li>
@@ -916,9 +942,9 @@
       <ul>
         <li><strong>MCP tools:</strong>
           <ul>
-            <li><code>list_upcoming_bills(days)</code>, which reads <code>leases.next_due</code> and open invoices;</li>
+            <li><code>list_upcoming_bills(days)</code>, which reads <code>leases.next_due</code> and open invoices, and would let the board earmark the next rent ahead of time, not just once it's proposed;</li>
             <li><code>forecast_cash(days)</code>;</li>
-            <li>purchase orders that wait for cash: today a purchase order is refused outright when cash is short. It could instead be queued until the forecast says it's affordable.</li>
+            <li>purchase orders that can wait in a queue until the forecast says they're affordable.</li>
           </ul></li>
         <li><strong>Agents:</strong> a <strong>Finance/Purchasing</strong> agent that runs weekly. It would warn the Boss when the buffer is at risk, and queue shortfalls like #103's 12 hoodies as purchase orders until cash allows.</li>
       </ul>

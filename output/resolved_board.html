@@ -36,7 +36,7 @@
 <body>
 <header>
   <h1>Campus Customs: Resolved Board</h1>
-  <p>Screenshots of the React desk (<code style="background:rgba(255,255,255,.14);color:#fff">frontend/</code>, http://localhost:5173) after the Problem 9 run. The database was reset to the original values, then all three tickets were run on the board until each was resolved (Nov 2, 2026, 8:50–8:57 PM ET).</p>
+  <p>Screenshots of the React desk (<code style="background:rgba(255,255,255,.14);color:#fff">frontend/</code>, http://localhost:5173) after my own Problem 9 run. I reset the database to the original values, ran all three tickets from the board, and approved and signed off each one myself (Nov 2, 2026, 10:31–10:39 PM ET).</p>
   <nav>
     <a href="#summary">Summary</a>
     <a href="#t101">Ticket 101</a>
@@ -51,10 +51,10 @@
     <table>
       <thead><tr><th>Ticket</th><th>Final status</th><th>How it was resolved</th><th>Human approval</th><th class="num">Cash change</th><th class="num">Checking after</th></tr></thead>
       <tbody>
-        <tr><td colspan="5"><strong>Starting balance</strong> (after the reset)</td><td class="num">$3,400.00</td></tr>
-        <tr><td><strong>#103</strong> Bulk hoodie discount (inquiry)</td><td><span class="resolved">Resolved</span></td><td>The run finished with the Boss reporting <code>done</code> and nothing waiting on a person</td><td>None needed (the 10% quote is within Accounting's limit)</td><td class="num">$0.00</td><td class="num">$3,400.00</td></tr>
-        <tr><td><strong>#102</strong> Rent due</td><td><span class="resolved">Resolved</span></td><td>Mitchell Fourman approved the proposed rent</td><td>$2,400.00 to Elm City Properties (payment 1)</td><td class="num neg">−$2,400.00</td><td class="num">$1,000.00</td></tr>
-        <tr><td><strong>#101</strong> Bulldog tee</td><td><span class="resolved">Resolved</span></td><td>Mitchell Fourman approved the proposed invoice payment</td><td>$840.00 to Bulldog Print Co for invoice 501 (payment 2), below the $500 buffer</td><td class="num neg">−$840.00</td><td class="num">$160.00</td></tr>
+        <tr><td colspan="5"><strong>Starting balance</strong> (after Reset desk)</td><td class="num">$3,400.00</td></tr>
+        <tr><td><strong>#103</strong> Bulk hoodie discount (inquiry)</td><td><span class="resolved">Resolved</span></td><td>I signed it off: no discount above 10%</td><td>Sign-off by Mitchell Fourman (declined the 15% option)</td><td class="num">$0.00</td><td class="num">$3,400.00</td></tr>
+        <tr><td><strong>#102</strong> Rent due</td><td><span class="resolved">Resolved</span></td><td>I approved the proposed rent, a priority payment, first</td><td>$2,400.00 to Elm City Properties (payment 1)</td><td class="num neg">−$2,400.00</td><td class="num">$1,000.00</td></tr>
+        <tr><td><strong>#101</strong> Bulldog tee</td><td><span class="resolved">Resolved</span></td><td>I approved the proposed invoice payment</td><td>$840.00 to Bulldog Print Co for invoice 501 (payment 2), below the $500 buffer</td><td class="num neg">−$840.00</td><td class="num">$160.00</td></tr>
         <tr class="total"><td colspan="4">Ending balance (matches <code>cash_accounts</code>)</td><td class="num neg">−$3,240.00</td><td class="num">$160.00</td></tr>
       </tbody>
     </table>
@@ -62,17 +62,17 @@
 
   <section class="card" id="t101">
     <h2>Ticket 101: Bulldog tee <span class="resolved">Resolved</span></h2>
-    <div class="caption">The Boss sent Inventory and Accounting out in the same step, then Customer Service.
+    <div class="caption">
       <ul>
-        <li><strong>Inventory:</strong> found 0 of the size S tee on hand.</li>
-        <li><strong>Accounting:</strong> proposed paying the overdue $840 invoice 501, the reprint the order waits on, and flagged that it leaves checking at $160.</li>
-        <li><strong>Mitchell Fourman</strong> approved it, so the ticket is resolved and checking reads <strong>$160.00</strong>, below the buffer.</li>
-        <li><strong>Customer Service:</strong> its draft to Tauhid promises no date.</li>
+        <li><strong>One run:</strong> the Boss sent Inventory and Accounting out in the same step, then Customer Service.</li>
+        <li><strong>Inventory:</strong> found 0 of the size S tee, and that Bulldog Print Co is <strong>on hold</strong> until overdue invoice 501 is paid.</li>
+        <li><strong>Accounting:</strong> proposed the $840.</li>
+        <li><strong>My approval:</strong> I approved it after the rent, so the header reads <strong>$160.00</strong>, below the buffer.</li>
       </ul>
-      This ticket needed a second run after the rule about linked invoices was clarified (see <code>desk_tickets.html</code>).</div>
+    </div>
     <figure>
       <a href="resolved_board_images/ticket_101.png" target="_blank"><img src="resolved_board_images/ticket_101.png" alt="React board showing ticket 101 resolved, checking at $160.00"></a>
-      <figcaption>The queue shows 3/3 resolved. The team floor shows Facilities not needed. The live feed shows each step's time. "Your move" reads "Resolved after Mitchell Fourman approved the $840.00 payment to Bulldog Print Co."</figcaption>
+      <figcaption>The queue shows 3/3 resolved, and Facilities shows as not needed. "Your move" reads "Resolved after Mitchell Fourman approved the $840.00 payment to Bulldog Print Co."</figcaption>
     </figure>
   </section>
 
@@ -81,14 +81,15 @@
     <div class="caption">
       <ul>
         <li><strong>Facilities first:</strong> it verified the email against lease 1 ($2,400 to Elm City Properties, due 2026-09-02).</li>
-        <li><strong>Accounting:</strong> proposed the rent, leaving $1,000.</li>
-        <li><strong>Mitchell Fourman</strong> approved it first, since rent comes first when cash is short. Checking dropped from $3,400 to $1,000, and the lease's next due date moved to 2026-10-02.</li>
-        <li><strong>Not needed:</strong> Inventory and Customer Service.</li>
+        <li><strong>Accounting:</strong> proposed the rent.</li>
+        <li><strong>Customer Service:</strong> drafted a receipt note to the landlord.</li>
+        <li><strong>My approval:</strong> rent is the priority bill, so I approved it first. Checking went from $3,400 to $1,000, and the lease's next due date moved to 2026-10-02.</li>
+        <li><strong>Priority flag:</strong> while it waited, the board now flags it <strong>Priority payment</strong> and shades the $2,400 red on the checking meter. That was added after this run, so it doesn't show in the resolved screenshot.</li>
       </ul>
     </div>
     <figure>
       <a href="resolved_board_images/ticket_102.png" target="_blank"><img src="resolved_board_images/ticket_102.png" alt="React board showing ticket 102 resolved"></a>
-      <figcaption>Facilities' and Accounting's wires are lit, Inventory and Customer Service are marked "Not needed", and the summary cards show each agent's part.</figcaption>
+      <figcaption>Facilities', Accounting's and Customer Service's wires are lit, and Inventory shows as not needed. The live feed's step timer marks the 32-second wait while Facilities wrote its verdict.</figcaption>
     </figure>
   </section>
 
@@ -96,16 +97,14 @@
     <h2>Ticket 103: Bulk hoodie discount <span class="resolved">Resolved</span></h2>
     <div class="caption">
       <ul>
-        <li><strong>An inquiry with a 24-hour reply window.</strong></li>
-        <li><strong>Inventory:</strong> found 8 of the 20 size M hoodies on hand.</li>
-        <li><strong>Accounting:</strong> quoted $1,160 at list or $1,044 at 10% off. Both are allowed without a manager.</li>
-        <li><strong>Customer Service:</strong> drafted the reply to the Yale AI Club.</li>
-        <li><strong>Nothing needed a person</strong>, so the ticket was resolved when the run finished. No cash moved.</li>
+        <li><strong>The facts:</strong> an inquiry with a 24-hour reply window. Inventory found 8 of the 20 hoodies, and the vendor on hold. Accounting quoted $1,160 at list and $1,044 at 10%.</li>
+        <li><strong>The question:</strong> Accounting also priced 15% ($986) unasked, so the Boss asked me to sign off, on both runs.</li>
+        <li><strong>My sign-off:</strong> "No discount above 10%. Send the drafted 10% offer." No cash moved.</li>
       </ul>
     </div>
     <figure>
-      <a href="resolved_board_images/ticket_103.png" target="_blank"><img src="resolved_board_images/ticket_103.png" alt="React board showing ticket 103 resolved with the draft reply"></a>
-      <figcaption>The draft reply to the Yale AI Club appears as a letter, and "What each agent did" shows Facilities as "Not needed".</figcaption>
+      <a href="resolved_board_images/ticket_103.png" target="_blank"><img src="resolved_board_images/ticket_103.png" alt="React board showing ticket 103 resolved after the sign-off"></a>
+      <figcaption>The screen shows the second run (Boss → Customer Service), the draft letter to the Yale AI Club, and my sign-off in "Your move".</figcaption>
     </figure>
   </section>
 </main>

@@ -72,11 +72,14 @@ export default function App() {
         const before = lastStates.current[tk.id];
         if (before === "running" && tk.desk_state !== "running") {
           const tone = tk.desk_state === "resolved" ? "good" : tk.desk_state === "needs_attention" ? "bad" : "info";
+          const priority = tk.pending_payments.find((p) => p.priority);
           toast(
             tk.last_run?.dry_run
               ? `Ticket #${tk.id}: practice run finished. Nothing was saved.`
-              : `Ticket #${tk.id}: the team finished — ${DESK_LABEL[tk.desk_state].toLowerCase()}.`,
-            tone,
+              : priority
+                ? `Ticket #${tk.id}: PRIORITY payment needs your approval: ${money(priority.amount)} ${priority.kind} to ${priority.payee}.`
+                : `Ticket #${tk.id}: the team finished — ${DESK_LABEL[tk.desk_state].toLowerCase()}.`,
+            priority && !tk.last_run?.dry_run ? "bad" : tone,
           );
         }
         lastStates.current[tk.id] = tk.desk_state;

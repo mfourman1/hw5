@@ -74,6 +74,9 @@ BULK_MIN_QTY = 12  # units of one product before a bulk discount can be offered
 AGENT_DISCOUNT_LIMIT_PCT = 10  # Accounting may offer up to this on a bulk order by itself
 MAX_DISCOUNT_PCT = 20  # never more than this, even with a manager's approval
 CASH_BUFFER = 500.0  # flag any payment that leaves checking below this
+# Priority bills: paid first when cash is short (shop rule 5). The dashboard flags them and
+# earmarks their amount on the checking meter while they wait for a person's approval.
+PRIORITY_KINDS = {"rent": "Rent keeps the shop's space, so it is paid first when cash is short (shop rule 5)."}
 
 # Ticket statuses. A ticket counts as open until it is resolved or closed.
 TICKET_STATUSES = (
@@ -668,6 +671,8 @@ def _payment_check(conn: sqlite3.Connection, kind: str, ref_id: int, amount: flo
         "balance_after": after,
         "below_cash_buffer": after is not None and after < CASH_BUFFER,
         "cash_buffer": CASH_BUFFER,
+        "priority": kind in PRIORITY_KINDS,
+        "priority_reason": PRIORITY_KINDS.get(kind),
         "shop_date": today.isoformat(),
     }
 
@@ -679,7 +684,8 @@ def propose_payment(ticket_id: int, kind: str, ref_id: int, amount: float, propo
     kind is "invoice" (ref_id = invoice id) or "rent" (ref_id = lease id), and the ticket
     must link to that invoice or lease. Checks that the bill exists and is unpaid, the
     amount matches what is on file, and checking has the cash, and shows the balance after
-    (below_cash_buffer flags a balance under the buffer). If every check passes, adds a
+    (below_cash_buffer flags a balance under the buffer). priority is true for a priority
+    bill (rent), which is paid first when cash is short. If every check passes, adds a
     "PAYMENT PROPOSED" note to the ticket and sets it to awaiting_approval; otherwise
     proposed = false with the problems. Only a person can then pay it.
     """
@@ -722,8 +728,9 @@ def list_payment_proposals() -> dict:
 
     Reads the "PAYMENT PROPOSED" notes that propose_payment writes on open tickets and keeps
     the ones whose bill is still unpaid. Each proposal has the ticket, kind (invoice or
-    rent), ref_id, amount, payee and due date, plus the same checks record_payment will run
-    (ok, problems, balance_after, below_cash_buffer) so a person sees them before approving.
+    rent), ref_id, amount, payee and due date, whether it is a priority bill (rent), plus the
+    same checks record_payment will run (ok, problems, balance_after, below_cash_buffer) so a
+    person sees them before approving.
     """
     proposals: list[dict] = []
     with _connect() as conn:

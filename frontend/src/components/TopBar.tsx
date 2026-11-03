@@ -76,9 +76,16 @@ function CashCard({ cash, startBalance, cashLog }: { cash: Cash | null; startBal
   const scale = Math.max(startBalance ?? cash.balance, cash.balance, cash.cash_buffer * 2);
   const fill = Math.max(0, Math.min(100, (cash.balance / scale) * 100));
   const bufferAt = (cash.cash_buffer / scale) * 100;
+  // Money set aside for priority payments (rent) waiting for approval, shaded red at the end of the fill.
+  const earmarked = Math.min(cash.earmarked ?? 0, cash.balance);
+  const earmarkWidth = (earmarked / scale) * 100;
+  const short = (cash.earmarked ?? 0) > cash.balance;
+  const earmarkTitle = (cash.earmarks ?? [])
+    .map((e) => `${money(e.amount)} ${e.kind} to ${e.payee} (#${e.ticket_id})`)
+    .join(", ");
 
   return (
-    <div className={`cash-card${cash.below_buffer ? " low" : ""}`}>
+    <div className={`cash-card${cash.below_buffer ? " low" : ""}${earmarked > 0 ? " earmarked" : ""}`}>
       <button className="cash-main" onClick={() => setOpen((o) => !o)} aria-expanded={open} title="Show the cash log">
         <span className="label">Checking</span>
         <span className="cash-amount">{money(shown ?? cash.balance)}</span>
@@ -86,10 +93,26 @@ function CashCard({ cash, startBalance, cashLog }: { cash: Cash | null; startBal
       </button>
       <div className="cash-meter" title={`The shop keeps at least ${wholeMoney(cash.cash_buffer)} in checking`}>
         <div className="cash-fill" style={{ width: `${fill}%` }} />
+        {earmarked > 0 && (
+          <div
+            className="cash-earmark"
+            style={{ left: `${fill - earmarkWidth}%`, width: `${earmarkWidth}%` }}
+            title={`Earmarked for priority payments: ${earmarkTitle}`}
+          />
+        )}
         <div className="cash-buffer-line" style={{ left: `${bufferAt}%` }} />
       </div>
       <div className="cash-foot">
-        {cash.below_buffer ? `Below the ${wholeMoney(cash.cash_buffer)} buffer` : `${wholeMoney(cash.cash_buffer)} buffer`}
+        {earmarked > 0 ? (
+          <span className="earmark-text">
+            {short ? "Short for priority payments: " : `${money(cash.earmarked)} earmarked for priority · `}
+            {short ? money(cash.earmarked) : `${money(cash.free_after_earmarks)} free`}
+          </span>
+        ) : cash.below_buffer ? (
+          `Below the ${wholeMoney(cash.cash_buffer)} buffer`
+        ) : (
+          `${wholeMoney(cash.cash_buffer)} buffer`
+        )}
       </div>
       {open && (
         <div className="cash-log" role="dialog" aria-label="Cash log">
@@ -116,6 +139,15 @@ function CashCard({ cash, startBalance, cashLog }: { cash: Cash | null; startBal
             <span>Now</span>
             <span className="num">{money(cash.balance)}</span>
           </div>
+          {(cash.earmarks ?? []).map((e) => (
+            <div key={`${e.kind}-${e.ref_id}`} className="cash-log-row earmark">
+              <span>
+                Earmarked: {e.kind === "rent" ? "Rent" : e.kind} · {e.payee}
+                <small>#{e.ticket_id} · priority payment waiting for your approval</small>
+              </span>
+              <span className="num">{money(e.amount)}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

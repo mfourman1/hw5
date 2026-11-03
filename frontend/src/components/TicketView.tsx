@@ -69,6 +69,7 @@ function TicketHeader({ ticket: t, running, practice, setPractice, onRun, onSetS
             </span>
           )}
           <span className={`state-pill ${t.desk_state}`}>{DESK_LABEL[t.desk_state]}</span>
+          {t.priority && <span className="priority-chip">Priority payment</span>}
         </div>
         <h1>{t.subject}</h1>
         <div className="ticket-meta">
@@ -152,8 +153,11 @@ function Approver({ approver, setApprover }: { approver: string; setApprover: (v
 function PaymentCard({ pay, ...p }: { pay: PaymentProposal } & Props) {
   const ready = p.approver.trim().length >= 3;
   return (
-    <div className={`pay-card${pay.below_cash_buffer ? " warn" : ""}`}>
-      <div className="pay-title">{pay.kind === "purchase" ? "Approve purchase order" : "Approve payment"}</div>
+    <div className={`pay-card${pay.below_cash_buffer ? " warn" : ""}${pay.priority ? " priority" : ""}`}>
+      <div className="pay-title">
+        {pay.priority ? "Approve priority payment" : pay.kind === "purchase" ? "Approve purchase order" : "Approve payment"}
+      </div>
+      {pay.priority && pay.priority_reason && <div className="priority-note">{pay.priority_reason}</div>}
       <div className="pay-amount">{money(pay.amount)}</div>
       <div className="pay-to">
         to <strong>{pay.payee}</strong> ·{" "}
