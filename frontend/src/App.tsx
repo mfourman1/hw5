@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_URL, api, type Cash, type Ticket, type TicketSource } from "./api";
+import { API_URL, api, type Cash, type PaymentProposal, type Ticket, type TicketSource } from "./api";
 import { DESK_LABEL, money } from "./format";
 import { useRunEvents, useStoredState } from "./hooks";
 import { TicketQueue, queueOrder } from "./components/TicketQueue";
@@ -134,10 +134,10 @@ export default function App() {
       toast(`Ticket #${ticket.id} is with the team${practice ? " (practice run)" : ""}.`);
     });
 
-  const approve = () =>
+  const approve = (item: PaymentProposal) =>
     ticket &&
     act("approve", async () => {
-      const paid = await api.approve(ticket.id, approver.trim());
+      const paid = await api.approve(ticket.id, approver.trim(), item);
       toast(
         `${paid.kind === "purchase" ? "Bought" : "Paid"} ${money(paid.amount)} ${paid.kind === "purchase" ? "from" : "to"} ${paid.payee}.${paid.ticket_resolved ? ` Ticket #${ticket.id} is resolved.` : ""}`,
         "good",

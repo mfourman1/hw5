@@ -199,8 +199,11 @@ export const api = {
     if (params.taskId) q.set("task_id", params.taskId);
     return request<{ last_seq: number; events: AgentEvent[] }>(`/api/events?${q}`);
   },
-  approve: (ticketId: number, approvedBy: string) =>
-    request<Payment>("/api/payments/approve", post({ ticket_id: ticketId, approved_by: approvedBy })),
+  approve: (ticketId: number, approvedBy: string, item: { kind: string; ref_id: number }) =>
+    request<Payment>(
+      "/api/payments/approve",
+      post({ ticket_id: ticketId, approved_by: approvedBy, kind: item.kind, ref_id: item.ref_id }),
+    ),
   setSource: (ticketId: number, source: TicketSource | null) =>
     request<{ source: TicketSource | null }>(`/api/tickets/${ticketId}/source`, post({ source })),
   resolve: (ticketId: number, approvedBy: string, note?: string) =>

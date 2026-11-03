@@ -27,8 +27,9 @@ When a ticket is resolved (the desk rule)
       resolve route.
     Practice (dry) runs never resolve anything.
 
-Every shop fact goes through the campus-customs MCP server, the same one the agents use.
-The one exception is reset, which copies the original database file over the working copy.
+Every shop fact and every change goes through the campus-customs MCP server, the same one the
+agents use. The routes' connection is the desk (CAMPUS_CUSTOMS_DESK=1): the only one where the
+server will record a payment or purchase, set a ticket's source, or reset the database.
 """
 
 from __future__ import annotations
@@ -36,7 +37,6 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-import sqlite3
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -48,7 +48,7 @@ from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, Field
 
 import audit
-from config import AUDIT_PATH, ORIGINAL_DB_PATH, WORKING_DB_PATH, MissingAPIKeyError, shop_client
+from config import AUDIT_PATH, MissingAPIKeyError, shop_client
 from models import TaskResult
 from team import Team, new_id
 
@@ -90,7 +90,7 @@ async def lifespan(app: FastAPI):
     # One MCP server process for the routes, kept open while the backend runs. Each agent run
     # starts its own (see team.py), so a long run never blocks these routes.
     global _shop
-    async with shop_client() as client:
+    async with shop_client(desk=True) as client:  # the desk: the only connection that can pay
         _shop = client
         yield
         _shop = None
@@ -529,7 +529,7 @@ class ResetRequest(BaseModel):
 
 @app.post("/api/reset")
 async def reset(body: ResetRequest) -> dict[str, Any]:
-    """Copy the original database over data/campus_customs_new.db for a fresh run.
+    """Put data/campus_customs_new.db back to the original values for a fresh run (MCP reset_working_copy).
 
     The audit trail is kept (it is never wiped); a database_reset record is added to it.
     """
@@ -537,18 +537,6 @@ async def reset(body: ResetRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail='Send {"confirm": true} to reset the working database.')
     if _running():
         raise HTTPException(status_code=409, detail="Wait for the running agent tasks to finish before resetting.")
-    source = sqlite3.connect(f"{ORIGINAL_DB_PATH.as_uri()}?mode=ro", uri=True)
-    target = sqlite3.connect(WORKING_DB_PATH)
-    try:
-        source.backup(target)  # safe even if the MCP server has the file open
-    finally:
-        target.close()
-        source.close()
-    audit.event(None, "database_reset", source=ORIGINAL_DB_PATH.name, target=WORKING_DB_PATH.name)
-    tickets = await mcp("list_tickets")
-    balance = await cash()
-    return {
-        "reset": True,
-        "tickets": [{"id": t["id"], "status": t["status"]} for t in tickets["tickets"]],
-        "checking_balance": balance["balance"],
-    }
+    done = await mcp("reset_working_copy", confirm=True)  # through the MCP server, like every other change
+    audit.event(None, "database_reset", source=done["source"], target=done["target"])
+    return {"reset": True, "tickets": done["tickets"], "checking_balance": done["checking_balance"]}

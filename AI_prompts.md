@@ -162,11 +162,11 @@ Log of the prompts I typed to my vibe coder (Claude Code) for each problem, in m
 
 > Yes, fix it
 
-*What was lacking:* Testing the run route showed Accounting asking Facilities to check the lease a second time, even though the Boss had already passed along Facilities' answer. That wasted a hand-off and didn't match my plan, so I asked for the Accounting prompt to be fixed.
+*What was lacking:* Testing the run route showed Accounting re-asking Facilities to check the lease after the Boss had already passed along Facilities' answer, which wasted a hand-off and didn't match my plan.
 
 > Leave it for Problem 9
 
-*What was lacking:* After the fix, a test run had the Boss ask Customer Service to draft a reply to the landlord on ticket 102, which my plan didn't expect. I chose to leave the Boss as it is and compare this with my plan when the agents resolve the tickets in Problem 9.
+*What was lacking:* After the fix, a test run had the Boss ask Customer Service for a landlord reply on ticket 102, which my plan didn't expect, and I chose to keep that difference to compare in Problem 9.
 
 ---
 
@@ -203,11 +203,11 @@ Log of the prompts I typed to my vibe coder (Claude Code) for each problem, in m
 
 > Yes, clarify it
 
-*What was lacking:* Testing the board showed the Boss refusing to propose the rent on ticket 102 because the landlord's email gives no amount, and shop rule 4 said the amount must match. That would leave the rent ticket stuck, so I had rule 4 clarified: a detail the notice leaves out is decided by the lease, and only a detail that contradicts the lease is a mismatch.
+*What was lacking:* Testing the board showed the Boss refusing to propose the rent on ticket 102 because the email gives no amount and rule 4 said the amount must match, which would leave the rent ticket stuck.
 
 > Yes, fix it
 
-*What was lacking:* After the rule 4 fix, a test run on ticket 102 had Customer Service ask Facilities to check the lease again, even though the Boss had already given it the verified facts. That was a wasted hand-off. Fixing it also showed that Accounting would still re-check when the Boss didn't say which tool a fact came from. So now the Boss passes each fact on with its source, and Customer Service and Accounting use those facts instead of asking again.
+*What was lacking:* After the rule 4 fix, a test run on ticket 102 had Customer Service re-ask Facilities to check the lease even though the Boss had already given it the verified facts, which wasted a hand-off.
 
 > Run it so I can use it
 
@@ -221,7 +221,7 @@ Log of the prompts I typed to my vibe coder (Claude Code) for each problem, in m
 > 4. Ensure the ticket queue ranks tickets by deadline, with overdue on top, close to due after, than farther out deadlines after.
 > 5. Ticket 103 is not an order, but an inquiry. These can still be time sensitive. Please attach a 24 hour turnover deadline to these types of requests so that the store avoids losing business by not responding fast enough
 
-*What was lacking:* Using the first draft, I couldn't see where a run was slow and had to open each ticket to see its due date. There was also no way to record where a ticket came from. The queue wasn't strictly ordered by deadline, and inquiries like ticket 103 had no deadline at all, even though a slow reply can lose the sale.
+*What was lacking:* The first draft didn't show where a run was slow, hid due dates and ticket sources, didn't strictly order the queue by deadline, and gave inquiries like ticket 103 no deadline even though a slow reply can lose the sale.
 
 > Yes, update it
 
@@ -264,7 +264,7 @@ Log of the prompts I typed to my vibe coder (Claude Code) for each problem, in m
 >
 > Approvals: Approve for me
 
-*What was lacking:* On the first run, ticket 101 came back blocked. Accounting wouldn't propose paying invoice 501 because it couldn't prove the linked invoice was the restock for this order. I chose to have the rule clarified (a ticket's linked invoice is its bill) and the ticket re-run. I also authorized the AI to click Approve in my name for the $2,400 rent and the $840 invoice, knowing checking would end at $160, below the $500 buffer.
+*What was lacking:* On the first run ticket 101 came back blocked because Accounting wouldn't treat linked invoice 501 as the order's restock, so I had that rule clarified and the ticket re-run, and I authorized the AI to click Approve in my name for the $2,400 rent and the $840 invoice, knowing checking would end at $160.
 
 ---
 

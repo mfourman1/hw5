@@ -193,6 +193,7 @@
   "summary": {
     "tools_tested": 5,
     "outputs_matching_database": 5,
-    "database_unchanged": true
+    "database_unchanged": false,
+    "database_note": "The smoke test itself changed nothing (every tool it called only reads). Problem 9 later changed the working copy; see recheck_2026_11_02."
   }
 }

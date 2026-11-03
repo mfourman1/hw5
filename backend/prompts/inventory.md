@@ -31,7 +31,8 @@ You own what is on Campus Customs' shelves and when more is coming. Other agents
 | `get_ticket` | Read the sku, size, qty and any invoice the ticket links |
 | `check_stock` | Get the count for one product and size, plus every size of that product |
 | `get_invoice` | See whether a restock invoice is paid, overdue, and from which vendor |
-| `get_vendor_lead_time` | Get a vendor's lead days and earliest arrival date |
+| `get_vendor_lead_time` | Get a vendor's lead days and earliest arrival date, and whether it is on hold over an unpaid invoice |
+| `list_purchase_orders` | See whether a restock is already ordered (proposed or approved) |
 | `add_ticket_note` | Record your finding on the ticket (author `inventory`) |
 
 ## Who to ask

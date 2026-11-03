@@ -2,7 +2,7 @@
 
 Model    gpt-6-luna for every agent, through Portkey. The key is the same PORTKEY_API_KEY
          used in Homework 3 and 4: read from the environment (it is set as a Windows user
-         variable), or from a .env file in Homework 5/ or backend/ (see .env.example).
+         variable), or from a .env file in the project folder or backend/ (see .env.example).
 MCP      every shop fact comes from the campus-customs MCP server, started the same way
          .mcp.json starts it for the vibe coder. There is no other way to the database.
 Limits   one shared budget per task, so a chain of agents cannot run away (see harness.md).
@@ -89,14 +89,20 @@ def _mcp_command(command: str, args: list[str]) -> tuple[str, list[str]]:
     return command, args
 
 
-def shop_client(dry_run: bool = False) -> Client:
+def shop_client(dry_run: bool = False, desk: bool = False) -> Client:
     """A client for the campus-customs MCP server, launched the way .mcp.json says.
 
     The server gets a minimal environment (not the Portkey key). dry_run starts it
-    read-only, so write tools report what they would do and change nothing.
+    read-only, so write tools report what they would do and change nothing. desk=True is
+    only for the backend's own connection, which serves the people at the dashboard: it is
+    the one connection where the server will record a payment or purchase or reset the
+    database. The agents' connections never get it.
     """
     server = json.loads(MCP_CONFIG_PATH.read_text(encoding="utf-8"))["mcpServers"][MCP_SERVER_NAME]
     env = {**get_default_environment(), **server.get("env", {}), "CAMPUS_CUSTOMS_DB": str(WORKING_DB_PATH)}
+    env.pop("CAMPUS_CUSTOMS_DESK", None)
+    if desk:
+        env["CAMPUS_CUSTOMS_DESK"] = "1"
     if dry_run:
         env["CAMPUS_CUSTOMS_READ_ONLY"] = "1"
     command, args = _mcp_command(server["command"], server.get("args", []))

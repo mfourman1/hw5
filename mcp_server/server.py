@@ -10,9 +10,11 @@ The shop's "today" is desk.date_today in the database, not the computer's clock.
 Most tools only read. The ones that write:
     add_ticket_note, propose_payment, propose_purchase_order   agents may use these; they move no money
     set_ticket_source                                          the desk (a person) records where a ticket came from
-    record_payment, record_purchase                            move money: a human manager only. The agent team
-                                                               is never given them, and they refuse an approver
-                                                               that names an agent.
+    record_payment, record_purchase, reset_working_copy        the desk only: they run only when the backend
+                                                               starts this server for the dashboard
+                                                               (CAMPUS_CUSTOMS_DESK=1), so agents and the vibe
+                                                               coder can't pay, buy or reset. A payment also needs
+                                                               an agent's proposal first.
 A vendor ships nothing new while it has an unpaid invoice with us (get_vendor_lead_time
 reports it as on_hold, and the purchase tools refuse to buy from it).
 
@@ -20,6 +22,8 @@ Environment (optional)
     CAMPUS_CUSTOMS_DB          another database file to use (for tests)
     CAMPUS_CUSTOMS_READ_ONLY   "1" = dry run: write tools report what they would do
                                and change nothing
+    CAMPUS_CUSTOMS_DESK        "1" = this connection is the desk (set only by the backend for
+                               the dashboard): allows the money-moving and reset tools
 
 Run (stdio):  python server.py
 """
@@ -41,6 +45,18 @@ from fastmcp.exceptions import ToolError
 HERE = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("CAMPUS_CUSTOMS_DB") or HERE.parent / "data" / "campus_customs_new.db")
 READ_ONLY = os.environ.get("CAMPUS_CUSTOMS_READ_ONLY") == "1"
+ORIGINAL_DB_PATH = HERE.parent / "data" / "campus_customs.db"
+# The desk: only the backend's own connection, which serves the people at the dashboard,
+# starts the server with CAMPUS_CUSTOMS_DESK=1. The tools that move money or reset data
+# refuse to run anywhere else, so neither the agent team nor a vibe coder can pay, buy or
+# reset, whatever name they type: a payment happens only when a person clicks Approve.
+DESK = os.environ.get("CAMPUS_CUSTOMS_DESK") == "1"
+
+
+def _desk_only(action: str) -> None:
+    if not DESK:
+        raise ToolError(f"Only a person at the desk can {action}. Do it from the dashboard; "
+                        "this connection is not the desk.")
 
 mcp = FastMCP("campus-customs")
 
@@ -424,8 +440,10 @@ def set_ticket_source(ticket_id: int, source: str | None) -> dict:
 
     The tickets table gets a source column the first time this is used (the original
     database doesn't have one), so a ticket with no recorded source shows source = null.
-    For people at the desk; the agents are not given this tool.
+    For people at the desk (the dashboard's "Came in" picker): it works only on the desk's
+    connection, and the agents are not given this tool.
     """
+    _desk_only("record where a ticket came from")
     if source is not None and source not in TICKET_SOURCES:
         raise ToolError(f"source must be one of: {', '.join(TICKET_SOURCES)}, or null.")
     with _connect(write=not READ_ONLY) as conn:
@@ -443,7 +461,8 @@ def set_ticket_source(ticket_id: int, source: str | None) -> dict:
 def add_ticket_note(ticket_id: int, author: str, note: str, new_status: str | None = None) -> dict:
     """Add a dated note to a ticket and optionally change its status. Notes are never edited or removed.
 
-    `author` is who is writing (your role, for example "inventory"). Keep the note to one or
+    `author` is who is writing (your role, for example "inventory"). Only the desk may set a
+    ticket to resolved or closed. Keep the note to one or
     two sentences of facts and decisions (500 characters at most). new_status, if given,
     must be one of: open, in_progress, awaiting_approval, waiting_on_stock,
     waiting_on_customer, resolved, closed.
@@ -455,6 +474,8 @@ def add_ticket_note(ticket_id: int, author: str, note: str, new_status: str | No
         raise ToolError(f"The note is {len(note)} characters; keep it to {MAX_NOTE_CHARS}.")
     if new_status is not None and new_status not in TICKET_STATUSES:
         raise ToolError(f"new_status must be one of: {', '.join(TICKET_STATUSES)}.")
+    if new_status in CLOSED_STATUSES and not DESK:
+        raise ToolError("Only the desk resolves or closes a ticket (shop rule 9). Report `done` instead.")
     if note.upper().startswith(RESERVED_NOTE_PREFIXES):
         raise ToolError("Notes starting with PAYMENT PROPOSED, PAID, PURCHASE PROPOSED or PURCHASED are written only by the payment and purchase tools.")
 
@@ -731,17 +752,30 @@ def list_payment_proposals() -> dict:
     return {"shop_date": today.isoformat(), "count": len(proposals), "proposals": proposals}
 
 
+def _was_proposed(conn: sqlite3.Connection, kind: str, ref_id: int, amount: float, payee: str) -> bool:
+    """Is there a "PAYMENT PROPOSED" note for exactly this bill on an open ticket?"""
+    link = "invoice_id" if kind == "invoice" else "lease_id"
+    note = f"PAYMENT PROPOSED: ${amount:,.2f} to {payee} for {kind} {ref_id} "
+    rows = conn.execute(
+        f"SELECT notes FROM tickets WHERE {link} = ? AND status NOT IN ({','.join('?' * len(CLOSED_STATUSES))})",
+        (ref_id, *CLOSED_STATUSES),
+    ).fetchall()
+    return any(note in (r["notes"] or "") for r in rows)
+
+
 @mcp.tool
 def record_payment(kind: str, ref_id: int, amount: float, approved_by: str, account: str = "checking") -> dict:
-    """HUMAN MANAGER ONLY: pay a bill a person has approved. The agent team never gets this tool.
+    """HUMAN MANAGER ONLY (the desk): pay a bill a person has approved. Agents never get this tool.
 
     Adds the payment to payments (dated the shop's date, with approved_by), takes the amount
     out of the cash account, marks an invoice paid or moves the lease's next_due on one
     month, and adds a "PAID" note to every open ticket linked to the bill (a ticket that was
     awaiting_approval goes back to in_progress). approved_by must be the full name of the
-    person who approved it; a name that sounds like an agent is refused. Runs the same
-    checks as propose_payment and never lets cash go negative.
+    person who approved it; a name that sounds like an agent is refused. Works only on the
+    desk's connection (the dashboard's Approve button), and only for a bill an agent has
+    proposed. Runs the same checks as propose_payment and never lets cash go negative.
     """
+    _desk_only("record a payment")
     approver = " ".join(approved_by.split())
     if not approver or set(re.findall(r"[a-z]+", approver.lower())) & AGENT_WORDS:
         raise ToolError("approved_by must be the name of the person who approved this payment, not an agent.")
@@ -750,6 +784,10 @@ def record_payment(kind: str, ref_id: int, amount: float, approved_by: str, acco
 
     with _connect(write=True) as conn:
         check = _payment_check(conn, kind, ref_id, amount, account)
+        if check.get("payee") and not _was_proposed(conn, kind, ref_id, check["amount"], check["payee"]):
+            check["problems"].append(f"No agent has proposed paying {kind} {ref_id}. A bill is paid only after "
+                                     "Accounting proposes it (propose_payment) and a person approves it.")
+            check["ok"] = False
         if not check["ok"]:
             return {"paid": False, **check}
         today = check["shop_date"]
@@ -963,15 +1001,17 @@ def list_purchase_orders(status: str | None = None) -> dict:
 
 @mcp.tool
 def record_purchase(po_id: int, approved_by: str, account: str = "checking") -> dict:
-    """HUMAN MANAGER ONLY: approve and pay a proposed purchase order. The agent team never gets this tool.
+    """HUMAN MANAGER ONLY (the desk): approve and pay a proposed purchase order. Agents never get this tool.
 
     Re-runs the purchase checks (vendor has no unpaid invoice, enough cash, never below
     zero), then adds the payment to payments (kind "purchase", ref_id = po_id, dated the
     shop's date, with approved_by), takes the amount out of the cash account, marks the
     order approved with its expected arrival, and adds a "PURCHASED" note to its ticket
     (a ticket that was awaiting_approval goes back to in_progress). Stock is added to
-    inventory when it arrives, not now. approved_by must be a person's full name.
+    inventory when it arrives, not now. approved_by must be a person's full name. Works
+    only on the desk's connection (the dashboard's Approve button).
     """
+    _desk_only("approve a purchase")
     approver = " ".join(approved_by.split())
     if not approver or set(re.findall(r"[a-z]+", approver.lower())) & AGENT_WORDS:
         raise ToolError("approved_by must be the name of the person who approved this purchase, not an agent.")
@@ -1023,6 +1063,37 @@ def record_purchase(po_id: int, approved_by: str, account: str = "checking") -> 
         "below_cash_buffer": check["below_cash_buffer"],
         "expected_arrival": check["expected_arrival"],
     }
+
+
+# --- Reset -------------------------------------------------------------------------------
+
+
+@mcp.tool
+def reset_working_copy(confirm: bool = False) -> dict:
+    """DESK ONLY: put the working database back to the original values for a fresh run.
+
+    Copies data/campus_customs.db over the working copy (SQLite's backup, so it is safe while
+    other connections are open). This undoes every payment, purchase, note and status
+    change. Works only on the desk's connection (the dashboard's Reset desk button), and
+    only with confirm = true.
+    """
+    _desk_only("reset the database")
+    if not confirm:
+        raise ToolError("Pass confirm = true: this undoes every change to the working database.")
+    if READ_ONLY:
+        raise ToolError("Dry run: the server is read-only, so nothing was reset.")
+    source = sqlite3.connect(f"{ORIGINAL_DB_PATH.as_uri()}?mode=ro", uri=True)
+    target = sqlite3.connect(DB_PATH)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+        source.close()
+    with _connect() as conn:
+        balance = conn.execute("SELECT balance FROM cash_accounts WHERE name = 'checking'").fetchone()
+        tickets = [dict(r) for r in conn.execute("SELECT id, status FROM tickets ORDER BY id")]
+    return {"reset": True, "source": ORIGINAL_DB_PATH.name, "target": DB_PATH.name,
+            "tickets": tickets, "checking_balance": balance["balance"] if balance else None}
 
 
 if __name__ == "__main__":

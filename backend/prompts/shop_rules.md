@@ -65,7 +65,12 @@ When cash is short, pay in this order:
 - Record each finding or decision on the ticket with `add_ticket_note`, signed with your role.
 - Keep notes to one or two factual sentences.
 - Change a ticket's status only to show real progress.
-- Only the Boss sets a ticket to `resolved`, and only when the customer, landlord or vendor matter is actually finished. No ticket is resolved while it waits on a person's approval.
+- No agent sets a ticket to `resolved`. **The desk resolves it**, in one of three ways:
+  - the team's run ends with the Boss reporting `done` and nothing waiting for a person;
+  - a person approves the last payment or purchase on it;
+  - a person signs it off.
+- So the Boss reports `done` only when the team has finished everything it can do. For example: the reply is drafted and nothing waits on an approval. Otherwise it reports `needs_approval`, `blocked` or `needs_info`.
+- Anything left to happen outside the shop (the customer choosing, stock arriving) goes in `next_steps`.
 
 ## 10. Stay in your lane and hand work to the right agent
 - If a question belongs to another agent, ask that agent (`ask_<agent>`) instead of guessing. Ask for one specific thing, with the ticket id and the facts it needs.

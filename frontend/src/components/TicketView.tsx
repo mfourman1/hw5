@@ -17,7 +17,7 @@ interface Props {
   setPractice: (v: boolean) => void;
   busy: string | null;
   onRun: () => void;
-  onApprove: () => void;
+  onApprove: (item: PaymentProposal) => void;
   onResolve: (note: string) => void;
   onSetSource: (source: TicketSource | null) => void;
 }
@@ -186,7 +186,7 @@ function PaymentCard({ pay, ...p }: { pay: PaymentProposal } & Props) {
       {pay.below_cash_buffer && <div className="pay-warn">This leaves less than the {wholeMoney(pay.cash_buffer)} cash buffer.</div>}
       {!pay.ok && <div className="pay-warn">{pay.problems.join(" ")}</div>}
       <Approver approver={p.approver} setApprover={p.setApprover} />
-      <button className="btn pay" onClick={p.onApprove} disabled={!ready || !pay.ok || p.busy !== null}>
+      <button className="btn pay" onClick={() => p.onApprove(pay)} disabled={!ready || !pay.ok || p.busy !== null}>
         {p.busy === "approve" ? "Paying…" : `Approve & ${pay.kind === "purchase" ? "buy" : "pay"} ${money(pay.amount)}`}
       </button>
       <p className="fine">

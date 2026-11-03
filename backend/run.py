@@ -1,6 +1,6 @@
 """Give a task to the Campus Customs agent team from a terminal.
 
-Run with the project's Python (from the Homework 5 folder):
+Run with the project's Python (from the project folder, with .venv active):
 
     .venv/Scripts/python backend/run.py "Plan ticket 101"
     .venv/Scripts/python backend/run.py --agent inventory "How many size M navy hoodies are on hand?"
