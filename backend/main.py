@@ -13,16 +13,16 @@ Routes (also listed at http://localhost:8000/ and documented at /docs)
     POST /api/tickets/{ticket_id}/source  record where a ticket came from (online, in person, phone)
     GET  /api/runs/{task_id}              how one run is going, and the Boss's report when it ends
     GET  /api/events                      recent agent events: what each agent said and which tools it used
-    GET  /api/payments/pending            payments the agents proposed that are waiting for a person
-    POST /api/payments/approve            a person approves a proposed payment: the only route that moves cash
+    GET  /api/payments/pending            payments and purchase orders the agents proposed that wait for a person
+    POST /api/payments/approve            a person approves a proposed payment or purchase order: the only route that moves cash
     GET  /api/cash                        the current checking balance (cash_accounts)
     POST /api/reset                       put the working database back to the original values
 
 When a ticket is resolved (the desk rule)
     - The team's run finishes with the Boss reporting "done" and no payment waiting: resolved
       straight away, in the Boss's name.
-    - The run finishes with a payment waiting: resolved as soon as a person approves the last
-      payment on that ticket, in that person's name.
+    - The run finishes with a payment or purchase order waiting: resolved as soon as a person
+      approves the last one on that ticket, in that person's name.
     - The run finishes needing some other sign-off, or blocked: a person decides, with the
       resolve route.
     Practice (dry) runs never resolve anything.
@@ -128,7 +128,31 @@ def _person(name: str) -> str:
 
 
 async def _pending(ticket_id: int | None = None) -> list[dict[str, Any]]:
+    """Everything waiting for a person's approval: proposed payments (invoices, rent) and
+    proposed purchase orders, in one shape so the board shows them the same way."""
     proposals = (await mcp("list_payment_proposals"))["proposals"]
+    for po in (await mcp("list_purchase_orders", status="proposed"))["purchase_orders"]:
+        proposals.append({
+            "ticket_id": po["ticket_id"],
+            "kind": "purchase",
+            "ref_id": po["id"],
+            "payee": po.get("vendor"),
+            "amount": po["amount"],
+            "due_date": None,
+            "days_until_due": None,
+            "balance_before": po.get("balance_before"),
+            "balance_after": po.get("balance_after"),
+            "below_cash_buffer": po.get("below_cash_buffer"),
+            "cash_buffer": po.get("cash_buffer"),
+            "ok": po.get("ok"),
+            "problems": po.get("problems") or [],
+            "proposal_note": f"PO {po['id']}: {po['qty']} x {po['sku']} size {po['size']} at ${po['unit_cost']:,.2f}",
+            "sku": po["sku"],
+            "size": po["size"],
+            "qty": po["qty"],
+            "unit_cost": po["unit_cost"],
+            "expected_arrival": po.get("expected_arrival"),
+        })
     return [p for p in proposals if ticket_id is None or p["ticket_id"] == ticket_id]
 
 
@@ -318,7 +342,7 @@ async def resolve_ticket(ticket_id: int, body: ResolveRequest) -> dict[str, Any]
     if _running(ticket_id):
         raise HTTPException(status_code=409, detail="Wait for the team to finish this ticket first.")
     if await _pending(ticket_id):
-        raise HTTPException(status_code=409, detail="A payment on this ticket is waiting for approval; approve it first.")
+        raise HTTPException(status_code=409, detail="A payment or purchase on this ticket is waiting for approval; approve it first.")
     note = f"Signed off and resolved by {name}." + (f" {' '.join(body.note.split())}" if body.note else "")
     await _resolve(ticket_id, name, note, how="signed off")
     return {"ticket_id": ticket_id, "status": "resolved", "resolved_by": name}
@@ -416,21 +440,25 @@ def list_events(
 class ApproveRequest(BaseModel):
     ticket_id: int
     approved_by: str = Field(description="Full name of the person approving")
-    kind: Literal["invoice", "rent"] | None = Field(default=None, description="Only needed if a ticket has two proposals")
-    ref_id: int | None = None
+    kind: Literal["invoice", "rent", "purchase"] | None = Field(
+        default=None, description="Only needed if a ticket has two proposals"
+    )
+    ref_id: int | None = Field(default=None, description="Invoice id, lease id, or purchase order id")
 
 
 @app.get("/api/payments/pending")
 async def pending_payments() -> dict[str, Any]:
-    """Payments the agents proposed (vendor invoices, rent) that are waiting for a person."""
-    return await mcp("list_payment_proposals")
+    """Payments and purchases the agents proposed (vendor invoices, rent, purchase orders)
+    that are waiting for a person."""
+    proposals = await _pending()
+    return {"count": len(proposals), "proposals": proposals}
 
 
 @app.post("/api/payments/approve")
 async def approve_payment(body: ApproveRequest) -> dict[str, Any]:
-    """A person approves a payment the agents proposed. This is the only route that changes cash.
+    """A person approves a payment or purchase the agents proposed. This is the only route that changes cash.
 
-    If it was the last payment waiting on a ticket whose run has finished, the ticket is resolved.
+    If it was the last approval waiting on a ticket whose run has finished, the ticket is resolved.
     """
     name = _person(body.approved_by)
     matches = [
@@ -438,15 +466,27 @@ async def approve_payment(body: ApproveRequest) -> dict[str, Any]:
         if (body.kind is None or p["kind"] == body.kind) and (body.ref_id is None or p["ref_id"] == body.ref_id)
     ]
     if not matches:
-        raise HTTPException(status_code=404, detail=f"No proposed payment is waiting for approval on ticket {body.ticket_id}.")
+        raise HTTPException(status_code=404, detail=f"Nothing is waiting for approval on ticket {body.ticket_id}.")
     if len(matches) > 1:
         raise HTTPException(status_code=409, detail="This ticket has more than one proposal; say which kind and ref_id.")
     proposal = matches[0]
 
-    paid = await mcp("record_payment", kind=proposal["kind"], ref_id=proposal["ref_id"],
-                     amount=proposal["amount"], approved_by=name)
-    if not paid.get("paid"):
-        raise HTTPException(status_code=409, detail={"message": "The payment failed its checks.", "problems": paid.get("problems")})
+    if proposal["kind"] == "purchase":
+        bought = await mcp("record_purchase", po_id=proposal["ref_id"], approved_by=name)
+        if not bought.get("purchased"):
+            raise HTTPException(status_code=409, detail={"message": "The purchase failed its checks.", "problems": bought.get("problems")})
+        paid = {
+            "paid": True, "kind": "purchase", "ref_id": bought["po_id"], "payment_id": bought["payment_id"],
+            "payee": bought["vendor"], "amount": bought["amount"], "approved_by": bought["approved_by"],
+            "balance_after": bought["balance_after"], "below_cash_buffer": bought["below_cash_buffer"],
+            "expected_arrival": bought["expected_arrival"],
+            "what": f"{bought['qty']} x {bought['sku']} size {bought['size']}",
+        }
+    else:
+        paid = await mcp("record_payment", kind=proposal["kind"], ref_id=proposal["ref_id"],
+                         amount=proposal["amount"], approved_by=name)
+        if not paid.get("paid"):
+            raise HTTPException(status_code=409, detail={"message": "The payment failed its checks.", "problems": paid.get("problems")})
     audit.event(None, "payment_approved", ticket_id=body.ticket_id, approved_by=paid["approved_by"],
                 kind=paid["kind"], ref_id=paid["ref_id"], amount=paid["amount"], payee=paid["payee"],
                 payment_id=paid["payment_id"], balance_after=paid["balance_after"])
@@ -457,7 +497,7 @@ async def approve_payment(body: ApproveRequest) -> dict[str, Any]:
     if (ticket["status"] not in CLOSED and last_run and last_run["status"] == "finished"
             and not last_run["dry_run"] and not await _pending(body.ticket_id)):
         await _resolve(body.ticket_id, name,
-                       f"Resolved after {name} approved the ${paid['amount']:,.2f} payment to {paid['payee']}.",
+                       f"Resolved after {name} approved the ${paid['amount']:,.2f} {'purchase from' if paid['kind'] == 'purchase' else 'payment to'} {paid['payee']}.",
                        how="payment approved")
         resolved = True
     return {**paid, "ticket_resolved": resolved}

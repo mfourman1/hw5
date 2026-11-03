@@ -81,7 +81,7 @@ In the feed, hand-offs are indented by depth (Boss → Accounting → Facilities
 ## How resolved tickets show up
 
 - **In the queue:** a green **RESOLVED** rubber stamp lands on the card (with a short stamp animation). The card fades, gets a green edge, and drops to the bottom of the queue. The progress bar fills in green.
-- **On the ticket:** the header's top edge turns green, and "Your move" becomes a green check with the resolution note, for example "Resolved after Smoke Test approved the $2,400.00 payment to Elm City Properties."
+- **On the ticket:** the header's top edge turns green, and "Your move" becomes a green check with the resolution note, for example "Resolved after Mitchell Fourman approved the $2,400.00 payment to Elm City Properties."
 - **A toast** says what happened when a run finishes or a payment resolves a ticket.
 
 When a ticket is resolved, which the backend decides:
@@ -94,6 +94,7 @@ When a ticket is resolved, which the backend decides:
 
 - **The checking balance is always in the header.** A thin meter under it shows the balance against the starting amount, with a gold line at the **$500 cash buffer**. The card turns amber if checking drops below the buffer.
 - **When a payment is approved, the number visibly drains.** It counts down from the old balance to the new one over about a second, and a red **−$2,400.00** tag pops up next to it. The drop is meant to be felt, because a person just moved real money.
+- **Payments and purchase orders use the same card.** A purchase order shows the items (e.g. "PO 1: 12 × CC-HOOD-NAVY size M at $22.00") and its expected arrival.
 - **The approval card shows the effect before you click:** "Checking $3,400.00 → **$1,000.00**", with a warning if it would go below the buffer. The button names the exact amount ("Approve & pay $2,400.00"), so nobody approves a number they didn't read.
 - **Clicking the balance opens a cash log:** the starting balance after the last reset, each approved payment (what, to whom, which ticket, who approved it), and the balance now. It is the itemized cash story the Cash tab in Problem 9 needs.
 

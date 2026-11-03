@@ -30,8 +30,10 @@ ROOT = BACKEND_DIR.parent
 PROMPTS_DIR = BACKEND_DIR / "prompts"
 SHOP_RULES_PATH = PROMPTS_DIR / "shop_rules.md"
 ORIGINAL_DB_PATH = ROOT / "data" / "campus_customs.db"  # as delivered; only ever read
-WORKING_DB_PATH = ROOT / "data" / "campus_customs_new.db"  # what the MCP server works on
-AUDIT_PATH = ROOT / "output" / "audit_trail.json"
+# What the MCP server works on. CAMPUS_CUSTOMS_DB and CAMPUS_CUSTOMS_AUDIT point a test run at
+# scratch files instead, so testing never touches the real working copy or audit trail.
+WORKING_DB_PATH = Path(os.environ.get("CAMPUS_CUSTOMS_DB") or ROOT / "data" / "campus_customs_new.db")
+AUDIT_PATH = Path(os.environ.get("CAMPUS_CUSTOMS_AUDIT") or ROOT / "output" / "audit_trail.json")
 MCP_CONFIG_PATH = ROOT / ".mcp.json"
 MCP_SERVER_NAME = "campus-customs"
 
@@ -55,8 +57,8 @@ MAX_DELEGATIONS = 10  # ask_<agent> calls per task, across all agents
 MAX_TASK_CHARS = 2_000  # longest task text one agent may hand another
 RETRIES = 2  # times a tool error or a bad report can send an agent back to try again
 
-# Tools on the MCP server that no agent may ever have (a person approves and pays).
-HUMAN_ONLY_TOOLS = frozenset({"record_payment"})
+# Tools on the MCP server that no agent may ever have (a person approves and pays or buys).
+HUMAN_ONLY_TOOLS = frozenset({"record_payment", "record_purchase"})
 
 
 class MissingAPIKeyError(RuntimeError):
@@ -94,7 +96,7 @@ def shop_client(dry_run: bool = False) -> Client:
     read-only, so write tools report what they would do and change nothing.
     """
     server = json.loads(MCP_CONFIG_PATH.read_text(encoding="utf-8"))["mcpServers"][MCP_SERVER_NAME]
-    env = {**get_default_environment(), **server.get("env", {})}
+    env = {**get_default_environment(), **server.get("env", {}), "CAMPUS_CUSTOMS_DB": str(WORKING_DB_PATH)}
     if dry_run:
         env["CAMPUS_CUSTOMS_READ_ONLY"] = "1"
     command, args = _mcp_command(server["command"], server.get("args", []))

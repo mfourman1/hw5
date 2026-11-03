@@ -9,12 +9,28 @@
   "how_tested": "Claude Code loaded campus-customs from .mcp.json, and each tool was called through that MCP connection (mcp__campus-customs__<tool>). Each output below is copied exactly as the tool returned it, then checked with a direct SQL query against data/campus_customs_new.db.",
   "user_request": "Test each of the five MCP tools I have. Save the evidence in output/mcp_smoke.json . For every tool include the prompt that was asked, the tool name, and the tool output (which much match the values in data/campus_customs_new.db)",
   "prompt_note": "The per-tool prompts below are the test questions the vibe coder answered for my request above, one per tool, each tied to an open ticket. I reviewed each test prompt, understand how it works, and kept them; all five tools behaved as expected.",
+  "database_note": "These outputs were recorded on 2026-11-01, when data/campus_customs_new.db was still an exact copy of the original data/campus_customs.db. They match the original database exactly. Problem 9 then resolved the tickets in the working copy, which changed two of these values there (see recheck_2026_11_02).",
+  "recheck_2026_11_02": {
+    "how": "Each tool was called again through the same MCP server, read-only, against both database files.",
+    "against_data/campus_customs.db (original)": "all 5 outputs match exactly",
+    "against_data/campus_customs_new.db (working copy after Problem 9)": {
+      "check_stock": "match",
+      "get_pricing": "match",
+      "get_vendor_lead_time": "match (Bulldog Print Co, 5 lead days)",
+      "get_lease": "next_due is now 2026-10-02 (was 2026-09-02), days_until_due 32 (was 2), because the $2,400 rent for lease 1 was paid in Problem 9 and the lease moved to its next due date",
+      "get_ticket_urgency": "ticket 101 is now resolved (urgency not_open, no deadline), because invoice 501 was paid in Problem 9"
+    },
+    "tool_change_after_review": "After a final review, get_vendor_lead_time also reports whether a vendor is on hold: a vendor ships nothing new while it has an unpaid invoice. Run against the original database today, it adds on_hold: true for Bulldog Print Co (invoice 501 unpaid) and gives the arrival as '5 days after invoice 501 is paid' instead of 2026-09-05. The vendor, lead days and specialty above are unchanged."
+  },
   "tests": [
     {
       "prompt": "Ticket 101: Tauhid Zaman wants a Classic Bulldog Tee in size S. Is CC-TEE-WHITE in stock in size S?",
       "tool": "check_stock",
       "mcp_tool_name": "mcp__campus-customs__check_stock",
-      "arguments": { "sku": "CC-TEE-WHITE", "size": "S" },
+      "arguments": {
+        "sku": "CC-TEE-WHITE",
+        "size": "S"
+      },
       "output": {
         "found": true,
         "sku": "CC-TEE-WHITE",
@@ -23,11 +39,25 @@
         "qty": 0,
         "in_stock": false,
         "location": "Aisle B",
-        "all_sizes": { "S": 0, "M": 5, "L": 3, "XL": 2 }
+        "all_sizes": {
+          "S": 0,
+          "M": 5,
+          "L": 3,
+          "XL": 2
+        }
       },
       "db_check": {
         "query": "SELECT size, qty, name, location FROM inventory WHERE sku = 'CC-TEE-WHITE'",
-        "db_values": { "name": "Classic Bulldog Tee", "location": "Aisle B", "qty_by_size": { "S": 0, "M": 5, "L": 3, "XL": 2 } },
+        "db_values": {
+          "name": "Classic Bulldog Tee",
+          "location": "Aisle B",
+          "qty_by_size": {
+            "S": 0,
+            "M": 5,
+            "L": 3,
+            "XL": 2
+          }
+        },
         "matches": true
       },
       "answer": "No. The shop has 0 Classic Bulldog Tees in size S (Aisle B), so ticket 101 cannot be filled from stock; M has 5, L 3, XL 2."
@@ -36,7 +66,9 @@
       "prompt": "Ticket 102: Elm City Properties emailed that rent is due in 2 days. What does lease 1 say we owe and when?",
       "tool": "get_lease",
       "mcp_tool_name": "mcp__campus-customs__get_lease",
-      "arguments": { "lease_id": 1 },
+      "arguments": {
+        "lease_id": 1
+      },
       "output": {
         "found": true,
         "lease_id": 1,
@@ -50,7 +82,14 @@
       },
       "db_check": {
         "query": "SELECT space_name, landlord, monthly_rent, next_due, notes FROM leases WHERE id = 1; SELECT date_today FROM desk",
-        "db_values": { "space_name": "Chapel Street shop", "landlord": "Elm City Properties", "monthly_rent": 2400.0, "next_due": "2026-09-02", "notes": null, "desk.date_today": "2026-08-31" },
+        "db_values": {
+          "space_name": "Chapel Street shop",
+          "landlord": "Elm City Properties",
+          "monthly_rent": 2400.0,
+          "next_due": "2026-09-02",
+          "notes": null,
+          "desk.date_today": "2026-08-31"
+        },
         "matches": true
       },
       "answer": "The lease confirms the notice: $2,400 for the Chapel Street shop is owed to Elm City Properties on 2026-09-02, 2 days after the shop's date of 2026-08-31."
@@ -59,7 +98,9 @@
       "prompt": "Ticket 103: The Yale AI Club wants a bulk discount on navy hoodies. What are the list price and unit cost for CC-HOOD-NAVY?",
       "tool": "get_pricing",
       "mcp_tool_name": "mcp__campus-customs__get_pricing",
-      "arguments": { "sku": "CC-HOOD-NAVY" },
+      "arguments": {
+        "sku": "CC-HOOD-NAVY"
+      },
       "output": {
         "found": true,
         "sku": "CC-HOOD-NAVY",
@@ -69,7 +110,10 @@
       },
       "db_check": {
         "query": "SELECT list_price, unit_cost FROM pricing WHERE sku = 'CC-HOOD-NAVY'",
-        "db_values": { "list_price": 58.0, "unit_cost": 22.0 },
+        "db_values": {
+          "list_price": 58.0,
+          "unit_cost": 22.0
+        },
         "matches": true
       },
       "answer": "List price is $58 and unit cost is $22 ($36 margin each), so 20 hoodies are $1,160 at list and any discount must stay above $440."
@@ -78,7 +122,9 @@
       "prompt": "How urgent is ticket 101?",
       "tool": "get_ticket_urgency",
       "mcp_tool_name": "mcp__campus-customs__get_ticket_urgency",
-      "arguments": { "ticket_id": 101 },
+      "arguments": {
+        "ticket_id": 101
+      },
       "output": {
         "found": true,
         "ticket_id": 101,
@@ -94,7 +140,16 @@
       },
       "db_check": {
         "query": "SELECT t.type, t.subject, t.status, t.created_at, t.invoice_id, i.due_date, i.status FROM tickets t JOIN invoices i ON i.id = t.invoice_id WHERE t.id = 101; SELECT date_today FROM desk",
-        "db_values": { "type": "customer_order", "subject": "Bulldog tee", "ticket_status": "open", "created_at": "2026-08-31T09:15:00-04:00", "invoice_id": 501, "invoice_due_date": "2026-08-28", "invoice_status": "open", "desk.date_today": "2026-08-31" },
+        "db_values": {
+          "type": "customer_order",
+          "subject": "Bulldog tee",
+          "ticket_status": "open",
+          "created_at": "2026-08-31T09:15:00-04:00",
+          "invoice_id": 501,
+          "invoice_due_date": "2026-08-28",
+          "invoice_status": "open",
+          "desk.date_today": "2026-08-31"
+        },
         "matches": true,
         "note": "2026-08-28 is 3 days before 2026-08-31, so days_until_deadline = -3 and the rule gives overdue."
       },
@@ -104,7 +159,9 @@
       "prompt": "Ticket 103 needs more hoodies than we have. Which vendor reprints apparel, and when could a new order arrive?",
       "tool": "get_vendor_lead_time",
       "mcp_tool_name": "mcp__campus-customs__get_vendor_lead_time",
-      "arguments": { "specialty": "apparel" },
+      "arguments": {
+        "specialty": "apparel"
+      },
       "output": {
         "found": true,
         "shop_date": "2026-08-31",
@@ -120,7 +177,13 @@
       },
       "db_check": {
         "query": "SELECT id, name, specialty, lead_days FROM vendors WHERE specialty LIKE '%apparel%'; SELECT date_today FROM desk",
-        "db_values": { "vendor_id": 1, "name": "Bulldog Print Co", "specialty": "apparel reprint", "lead_days": 5, "desk.date_today": "2026-08-31" },
+        "db_values": {
+          "vendor_id": 1,
+          "name": "Bulldog Print Co",
+          "specialty": "apparel reprint",
+          "lead_days": 5,
+          "desk.date_today": "2026-08-31"
+        },
         "matches": true,
         "note": "2026-08-31 plus 5 days is 2026-09-05."
       },

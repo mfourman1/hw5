@@ -26,14 +26,23 @@
           "note": "Accounting would not propose paying invoice 501 because it couldn't prove the linked invoice was this order's restock. Fixed by adding to shop rule 6 that a linked invoice is the ticket's bill, then re-run.",
           "model_requests": 22,
           "total_tokens": 101711,
-          "hand_offs": ["boss -> inventory", "boss -> accounting", "boss -> accounting -> inventory", "boss -> customer_service"]
+          "hand_offs": [
+            "boss -> inventory",
+            "boss -> accounting",
+            "boss -> accounting -> inventory",
+            "boss -> customer_service"
+          ]
         },
         {
           "task_id": "task-b1e949d0",
           "result": "needs_approval",
           "model_requests": 15,
           "total_tokens": 75921,
-          "hand_offs": ["boss -> inventory", "boss -> accounting", "boss -> customer_service"]
+          "hand_offs": [
+            "boss -> inventory",
+            "boss -> accounting",
+            "boss -> customer_service"
+          ]
         }
       ],
       "agents": {
@@ -73,7 +82,11 @@
           "result": "needs_approval",
           "model_requests": 14,
           "total_tokens": 67392,
-          "hand_offs": ["boss -> facilities", "boss -> accounting", "boss -> accounting -> facilities"]
+          "hand_offs": [
+            "boss -> facilities",
+            "boss -> accounting",
+            "boss -> accounting -> facilities"
+          ]
         }
       ],
       "agents": {
@@ -113,7 +126,11 @@
           "result": "done",
           "model_requests": 16,
           "total_tokens": 73908,
-          "hand_offs": ["boss -> inventory", "boss -> accounting", "boss -> customer_service"]
+          "hand_offs": [
+            "boss -> inventory",
+            "boss -> accounting",
+            "boss -> customer_service"
+          ]
         }
       ],
       "agents": {
@@ -125,7 +142,8 @@
       },
       "human_approvals": [],
       "cash_change": 0.0,
-      "customer_draft": "Hello Yale AI Club,\n\nThanks for reaching out! We have 8 of the 20 navy hoodies in size M available now. We can't yet confirm when the remaining 12 will be available, but we'll follow up when we have an update.\n\nFor all 20, the list-price quote is $58.00 each ($1,160 total), or the 10% bulk-discount quote is $52.20 each ($1,044 total). Please let us know which quote you'd like to proceed with, and we can discuss the next steps.\n\nBest,\nCampus Customs"
+      "customer_draft": "Hello Yale AI Club,\n\nThanks for reaching out! We have 8 of the 20 navy hoodies in size M available now. We can't yet confirm when the remaining 12 will be available, but we'll follow up when we have an update.\n\nFor all 20, the list-price quote is $58.00 each ($1,160 total), or the 10% bulk-discount quote is $52.20 each ($1,044 total). Please let us know which quote you'd like to proceed with, and we can discuss the next steps.\n\nBest,\nCampus Customs",
+      "review_note": "Found in a final review: Inventory gave 2026-09-05 as the earliest date for the 12 missing hoodies, but Bulldog Print Co still had unpaid invoice 501 at the time, and a vendor ships nothing new while it has an unpaid invoice. Shop rule 6 and get_vendor_lead_time now say so (on_hold). The club's draft never included the date."
     }
   ]
 }

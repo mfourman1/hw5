@@ -94,7 +94,7 @@ This opens the desk at http://localhost:5173. It talks to the backend at http://
 
 1. **Reset the database first:** step 1, or **Reset desk** on the board. Checking goes back to **$3,400.00** and all three tickets reopen.
 2. **Run each ticket:** click it in the queue, then **Send to the team**. Watch the team floor and the live feed.
-3. **Approve payments:** when a ticket shows **Needs your approval**, type your name under "Approving as" and click **Approve & pay**. That is the only thing that moves cash.
+3. **Approve payments:** when a ticket shows **Needs your approval**, type your name under "Approving as" and click **Approve & pay**. Purchase orders work the same way, with **Approve & buy**. That is the only thing that moves cash.
    - #102: $2,400 rent. Approve it first: rent goes first when cash is short.
    - #101: $840 for invoice 501.
 4. **Watch it resolve:** a ticket is resolved when its run finishes with nothing waiting (#103), or when its last payment is approved (#101, #102).

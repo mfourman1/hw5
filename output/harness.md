@@ -224,10 +224,14 @@ Follows the ticket's `invoice_id` (only if that invoice is still open) and `leas
 
 Looks a vendor up by ID, or by a specialty word when no vendor is linked, and returns its name, specialty, `lead_days`, and `earliest_arrival` (shop's date plus lead days, if ordered that day), fastest vendor first.
 
+*Updated after a final review:* the shop rule is that **a vendor ships nothing new while it has an unpaid invoice with us**. So the tool now also reads `invoices`:
+- **On hold:** if the vendor has an unpaid invoice, it returns `on_hold: true` with those invoices, and no `earliest_arrival`. Instead, `earliest_arrival_after_payment` says when stock could come once the invoice is paid.
+- **Correction:** the two rows below originally said "2026-09-05 at the earliest". With invoice 501 unpaid on the shop's date, the honest answer is **5 days after invoice 501 is paid**.
+
 | Tables it reads | Ticket it helps unlock | Why it is the right tool for that ticket |
 |---|---|---|
-| `vendors`, `desk` | **101**: customer order for a size S tee | Invoice 501 names vendor 1, Bulldog Print Co, and its 5-day lead time means a size S reprint ordered on the shop's date arrives 2026-09-05 at the earliest, so the agent can give the customer a real date instead of a vague "soon." |
-| `vendors`, `desk` | **103**: 20 navy hoodies in size M | No vendor is linked to ticket 103, but searching the specialty "apparel" finds Bulldog Print Co, so the agent can tell the club the 12 hoodies it is short could arrive 2026-09-05 at the earliest. |
+| `vendors`, `invoices`, `desk` | **101**: customer order for a size S tee | Invoice 501 names vendor 1, Bulldog Print Co. The tool shows it is **on hold** until invoice 501 is paid, and then needs 5 days. So the agent tells the customer a reprint comes 5 days after the bill is paid (2026-09-05 if paid on the shop's date), not a vague "soon". |
+| `vendors`, `invoices`, `desk` | **103**: 20 navy hoodies in size M | No vendor is linked to ticket 103, but searching the specialty "apparel" finds Bulldog Print Co. Because it is on hold until invoice 501 is paid, the agent knows the 12 missing hoodies can't be promised a date until that bill is settled. |
 
 **Future use:** Whenever stock runs low or a customer asks when an item will be back, agents can look up any vendor's real delivery time, and choose QuickShip CT (1 day, local courier) when something has to be delivered fast.
 
@@ -247,23 +251,23 @@ Five PydanticAI agents run Campus Customs' tickets: **Boss, Inventory, Accountin
 | Agent | Its job | Prompt | MCP tools it can call | Hands work to | Returns |
 |---|---|---|---|---|---|
 | **Boss** | Runs the ticket queue. Ranks tickets by urgency, routes each question to the right specialist, checks their answers against the shop rules, and collects everything a person must approve. Only the Boss marks a ticket resolved. | `boss.md` | `list_open_tickets`, `get_ticket`, `get_ticket_urgency`, `add_ticket_note` | Inventory, Accounting, Facilities, Customer Service | The plan or result for the manager, plus all approvals needed |
-| **Inventory** | Stock by product and size, shortfalls, whether a restock is really coming (is its invoice paid?), and earliest arrival dates | `inventory.md` | `get_ticket`, `check_stock`, `get_invoice`, `get_vendor_lead_time`, `add_ticket_note` | Boss, Accounting, Facilities, Customer Service | Counts, shortfall, restock status, earliest date |
-| **Accounting** | Prices and bulk quotes within the discount rules, vendor invoices, cash and the $500 buffer, and payment **proposals**. It never pays. | `accounting.md` | `get_ticket`, `get_pricing`, `quote_bulk_price`, `get_invoice`, `get_cash_balance`, `propose_payment`, `add_ticket_note` | Boss, Inventory, Facilities, Customer Service | Quotes, bill checks, cash before and after, proposed payments |
+| **Inventory** | Stock by product and size, shortfalls, whether a restock is really coming (is its invoice paid? is the vendor on hold?), earliest arrival dates, and which vendor can restock | `inventory.md` | `get_ticket`, `check_stock`, `get_invoice`, `get_vendor_lead_time`, `list_purchase_orders`, `add_ticket_note` | Boss, Accounting, Facilities, Customer Service | Counts, shortfall, restock status, earliest date |
+| **Accounting** | Prices and bulk quotes within the discount rules, vendor invoices, cash and the $500 buffer, payment **proposals**, and **purchase orders** for new stock. It never pays or buys. | `accounting.md` | `get_ticket`, `get_pricing`, `quote_bulk_price`, `get_invoice`, `get_cash_balance`, `propose_payment`, `propose_purchase_order`, `list_purchase_orders`, `add_ticket_note` | Boss, Inventory, Facilities, Customer Service | Quotes, bill checks, cash before and after, proposed payments and purchase orders |
 | **Facilities** | The Chapel Street shop and its lease. Checks rent notices against the lease (flags a mismatch as a possible scam), and arranges local courier deliveries. | `facilities.md` | `get_ticket`, `get_ticket_urgency`, `get_lease`, `get_vendor_lead_time`, `add_ticket_note` | Boss, Inventory, Accounting, Customer Service | Verified or not verified, with the lease amount and due date |
 | **Customer Service** | The shop's voice. Drafts every message to customers, groups, landlords and vendors, using only confirmed facts. A person sends each draft. | `customer_service.md` | `get_ticket`, `check_stock`, `add_ticket_note` | Boss, Inventory, Accounting, Facilities | A draft reply in `customer_message` |
 
 ### Shop rules
 
-Every agent reads `backend/prompts/shop_rules.md` before its own prompt. I approved these in Problem 5, and rules 4, 6 and 13 were added to or clarified in Problems 8 and 9.
+Every agent reads `backend/prompts/shop_rules.md` before its own prompt. I approved these in Problem 5. Rules 4, 6 and 13 were added to or clarified in Problems 8 and 9, and rules 3 and 6 again after a final review (purchase orders and the vendor hold).
 
 | # | Rule | In short |
 |---|---|---|
 | 1 | Today is the shop's date | Use `desk.date_today`, never the clock. Past due = overdue; 0–3 days = due soon. |
 | 2 | Facts only from MCP tools | Every number needs a tool source. `found: false` means "I don't know". |
-| 3 | No agent pays | Accounting proposes and a named person approves. |
+| 3 | No agent pays or buys | Accounting proposes payments and purchase orders. A named person approves them. |
 | 4 | Check a bill against the record | Every detail the notice *states* must match the lease or invoice. A detail it leaves out is decided by the record. A contradiction is flagged as a possible scam. |
 | 5 | Keep the $500 cash buffer | Flag anything that drops checking below it. When cash is short: rent first, then overdue vendor bills. |
-| 6 | Don't sell what we don't have | Nothing ships with 0 on hand or while its restock invoice is unpaid. Dates are "at the earliest". **A ticket's linked invoice is that ticket's bill**: for an order, it's the restock it waits on. |
+| 6 | Don't sell what we don't have | Nothing ships with 0 on hand. **A vendor ships nothing new while it has an unpaid invoice with us** (`on_hold`): no dates and no purchase orders from it until that is paid. Dates are "at the earliest". **A ticket's linked invoice is that ticket's bill**: for an order, it's the restock it waits on. Purchase orders only for stock a customer committed to. |
 | 7 | Discounts | Up to 10% on 12+ units by Accounting. Over 10% up to 20% needs a manager. Never over 20% or at cost. |
 | 8 | Only Customer Service writes to outsiders | Drafts only, for a person to send. No costs, margins or internal notes. |
 | 9 | Write it down | A signed ticket note for every decision. Only the Boss resolves a ticket, and never while it waits on approval. |
@@ -307,7 +311,7 @@ Every agent reads `backend/prompts/shop_rules.md` before its own prompt. I appro
 
 ### All MCP tools
 
-Problem 5 added eight tools (marked *new*) so the agents can work the open tickets. Problem 7 added two (marked *P7*) for the backend routes, and Problem 8 added one (marked *P8*). Write tools are marked **writes**.
+Problem 5 added eight tools (marked *new*) so the agents can work the open tickets. Problem 7 added two (marked *P7*) for the backend routes, Problem 8 added one (marked *P8*), and the final review added three for purchase orders (marked *review*). That makes 19. Write tools are marked **writes**.
 
 | Tool | Table(s) it uses | What it does | Agents that can call it |
 |---|---|---|---|
@@ -315,7 +319,7 @@ Problem 5 added eight tools (marked *new*) so the agents can work the open ticke
 | `get_lease` | `leases`, `desk` | Lease landlord, rent, next due date, days until due | Facilities |
 | `get_pricing` | `pricing` | List price, unit cost, margin | Accounting |
 | `get_ticket_urgency` | `tickets`, `invoices`, `leases`, `desk` | Earliest deadline and urgency label. Deadlines come from a linked invoice or lease, plus a **24-hour reply-by** for inquiries (price requests and questions), counted from when the ticket came in. | Boss, Facilities |
-| `get_vendor_lead_time` | `vendors`, `desk` | Vendor lead days and earliest arrival | Inventory, Facilities |
+| `get_vendor_lead_time` | `vendors`, `invoices`, `desk` | Vendor lead days and earliest arrival. **On hold** (no date) while the vendor has an unpaid invoice. | Inventory, Facilities |
 | `list_open_tickets` *new* | `tickets`, `desk` | Every ticket not resolved or closed, oldest first | Boss |
 | `get_ticket` *new* | `tickets` | One ticket in full, with its links and notes | All five |
 | `add_ticket_note` *new*, **writes** | `tickets` (reads `desk`) | Appends a dated, signed note and can change the status. Notes are never edited or removed. | All five |
@@ -326,13 +330,16 @@ Problem 5 added eight tools (marked *new*) so the agents can work the open ticke
 | `record_payment` *new*, **writes** | `payments`, `cash_accounts`, `invoices` or `leases`, `tickets`, `desk` | Pays an approved bill. **Human manager only.** No agent is given it, and it refuses an approver that names an agent. A ticket that was `awaiting_approval` goes back to `in_progress`. | No agent (a person only, through `POST /api/payments/approve`) |
 | `list_tickets` *P7* | `tickets`, `desk` | Every ticket, resolved ones too, with `open` true or false and its `source` | No agent (backend `GET /api/tickets`) |
 | `set_ticket_source` *P8*, **writes** | `tickets` | Records where a ticket came from: `online`, `in_person` or `phone` (called in). Blank means not recorded. The `source` column is added to the working database the first time it's used; the original database has no such column. | No agent (backend `POST /api/tickets/{id}/source`) |
+| `propose_purchase_order` *review*, **writes** | reads `vendors`, `pricing`, `inventory`, `invoices`, `cash_accounts`, `desk`; writes `purchase_orders`, `tickets` | Proposes buying new stock at the shop's unit cost. It refuses if the vendor is on hold or cash can't cover it, then adds a "PURCHASE PROPOSED" note and sets the ticket to `awaiting_approval`. **Moves no money.** The `purchase_orders` table is created in the working copy the first time. | Accounting |
+| `list_purchase_orders` *review* | `purchase_orders` (plus the purchase checks) | Proposed and approved purchase orders, with what approval would do to cash | Inventory, Accounting |
+| `record_purchase` *review*, **writes** | `purchase_orders`, `payments`, `cash_accounts`, `tickets`, `desk` | Approves and pays a purchase order (`payments.kind = 'purchase'`) and sets its expected arrival. **Human manager only.** It re-checks the vendor hold and cash. | No agent (a person only, through `POST /api/payments/approve`) |
 | `list_payment_proposals` *P7* | reads `tickets`, `invoices`, `vendors`, `leases`, `cash_accounts`, `desk` | Payments proposed on open tickets that are still unpaid, each with the checks `record_payment` will run | No agent (backend payment routes) |
 
-`add_ticket_note` refuses notes that start with "PAYMENT PROPOSED" or "PAID". Only the payment tools write those, so a plain note can't pass itself off as a proposal.
+`add_ticket_note` refuses notes that start with "PAYMENT PROPOSED", "PAID", "PURCHASE PROPOSED" or "PURCHASED". Only the payment and purchase tools write those, so a plain note can't pass itself off as a proposal.
 
 ### Audit trail
 
-Every agent-loop step is appended to `output/audit_trail.json`, one JSON array that only grows. New records are written over the closing `]`, so earlier records are never rewritten and nothing clears the file between runs.
+Every agent-loop step is appended to `output/audit_trail.json`, one JSON array that only grows. **What's in it:** the first 565 records, before the Problem 9 reset at 2026-11-03T01:50:22Z (8:50 PM ET on Nov 2), are from building and testing in Problems 5–8. They include 12 practice runs that saved nothing, one real test run on ticket 102, and two test approvals as "Smoke Test". Later resets undid their database changes. Everything after that reset is the real Problem 9 run. New records are written over the closing `]`, so earlier records are never rewritten and nothing clears the file between runs.
 
 Each record has:
 - `time` (UTC) and the `event`;
@@ -375,8 +382,8 @@ It runs at `http://localhost:8000`. Interactive docs are at `/docs`, and `/` lis
 - `POST /api/tickets/{ticket_id}/source`: record where a ticket came from (`{"source": "online" | "in_person" | "phone" | null}`).
 - `GET /api/runs/{task_id}`: return how one run is going, and the Boss's report when it ends.
 - `GET /api/events`: return recent agent events from the audit trail, meaning what each agent said and which tools it used. Filter with `task_id` or `ticket_id`, and poll with `after=<last_seq>` to refresh.
-- `GET /api/payments/pending`: return the payments the agents proposed that are waiting for a person.
-- `POST /api/payments/approve`: a person approves a proposed payment (`{"ticket_id": 102, "approved_by": "Full Name"}`). This records the payment and changes cash. It is the only route that moves money.
+- `GET /api/payments/pending`: return the payments and purchase orders the agents proposed that are waiting for a person.
+- `POST /api/payments/approve`: a person approves a proposed payment or purchase order (`{"ticket_id": 102, "approved_by": "Full Name"}`). This records the payment and changes cash. It is the only route that moves money.
 - `GET /api/cash`: return the current checking balance from `cash_accounts`.
 - `POST /api/reset`: put `data/campus_customs_new.db` back to the original values for a fresh run (`{"confirm": true}`). The audit trail is kept.
 
@@ -388,8 +395,8 @@ It runs at `http://localhost:8000`. Interactive docs are at `/docs`, and `/` lis
 | POST | `/api/tickets/{ticket_id}/resolve` | A person signs off a ticket. It adds "Signed off and resolved by NAME" to the ticket, sets it `resolved`, and adds a `ticket_resolved` audit record. Refuses an agent's name (400), and a ticket that is running or has a payment waiting (409). | MCP `add_ticket_note` |
 | GET | `/api/runs/{task_id}` | `running`, `finished` or `failed`, and the full `TaskResult` (the Boss's report, usage, hand-offs) when done | In memory |
 | GET | `/api/events` | Readable audit events: who (`agent`, `depth`), what they `said`, which `tools` (with arguments), tool results, status, approvals. `limit`, `after`, `task_id`, `ticket_id`, `raw` | `output/audit_trail.json` |
-| GET | `/api/payments/pending` | Proposed payments still unpaid, with amount, payee, balance after, and whether it would drop below the buffer | MCP `list_payment_proposals` |
-| POST | `/api/payments/approve` | A person approves the proposal on a ticket. It is recorded with `approved_by`, cash goes down, the invoice is marked paid or rent moves on a month, and a `payment_approved` audit record is added. Refuses an agent's name (400), a ticket with nothing pending (404), and a payment that fails its checks (409). | MCP `list_payment_proposals`, `record_payment` |
+| GET | `/api/payments/pending` | Proposed payments still unpaid, and proposed purchase orders, with amount, payee, balance after, and whether it would drop below the buffer | MCP `list_payment_proposals`, `list_purchase_orders` |
+| POST | `/api/payments/approve` | A person approves the proposal on a ticket: a payment (`record_payment`) or a purchase order (`record_purchase`). It is recorded with `approved_by`, cash goes down, the invoice is marked paid or rent moves on a month, and a `payment_approved` audit record is added. Refuses an agent's name (400), a ticket with nothing pending (404), and a payment that fails its checks (409). | MCP `list_payment_proposals`, `list_purchase_orders`, `record_payment`, `record_purchase` |
 | GET | `/api/cash` | Checking balance, as-of date, shop date, the $500 buffer, and `below_buffer` | MCP `get_cash_balance` |
 | POST | `/api/reset` | Copies `campus_customs.db` over `campus_customs_new.db` (needs `{"confirm": true}`, and refuses while a run is going). Adds a `database_reset` audit record. | SQLite backup (not MCP) |
 
@@ -414,7 +421,7 @@ The React + Vite + TypeScript desk in `frontend/` (`npm run dev` → http://loca
 | **Ticket header** | The request in the requester's words, the deadline, a "Came in" source picker, and **Send to the team**, with a "Practice run" switch that saves nothing |
 | **The team** | An org chart: the Boss over four specialist desks. Each desk shows its status light, latest line and current tool, and the wires light up when an agent is called. |
 | **Live feed** | Every step as it happens: hand-offs, tool calls in plain words with their results, and each agent's closing words in its own voice. Each step shows **its time since the run started**, gaps of 5 s or more are labeled (amber at 15 s, red at 45 s), and a live line counts the wait so a hang is visible. |
-| **Your move** | The one thing a person must do now: wait, **approve a payment** (showing amount, payee and checking before → after, with a buffer warning), sign off, or nothing |
+| **Your move** | The one thing a person must do now: wait, **approve a payment or purchase order** (showing amount, payee or items, and checking before → after, with a buffer warning), sign off, or nothing |
 | **Draft reply** | Customer Service's draft as a letter, with a Copy button |
 | **What each agent did** | One summary card per agent. Agents not called show as "Not needed". |
 
@@ -428,7 +435,7 @@ Guardrails for agents that deal with real customers and real money, and the limi
 
 ### Guardrails
 
-1. **People approve all money.** No agent can pay. `record_payment` is not in any agent's toolset (`HUMAN_ONLY_TOOLS` in `config.py`), and it refuses an `approved_by` that names an agent. Accounting can only *propose* a payment, which moves no money.
+1. **People approve all money.** No agent can pay or buy. `record_payment` and `record_purchase` are not in any agent's toolset (`HUMAN_ONLY_TOOLS` in `config.py`), and both refuse an approver that names an agent. Accounting can only *propose* a payment or purchase order, which moves no money.
 2. **Bills are checked before they are proposed.** In code (`propose_payment` and `record_payment`):
    - the amount must equal the invoice or lease;
    - the ticket must link to that bill;
@@ -452,8 +459,9 @@ Guardrails for agents that deal with real customers and real money, and the limi
     - Every decision goes on the ticket as a dated, signed note that is never edited.
     - Only the Boss resolves a ticket, and never while it waits on an approval.
 11. **Safe testing.** `--dry-run` starts the MCP server read-only, so write tools say what they *would* do and change nothing. The original `data/campus_customs.db` is never used. The Portkey key stays in the environment and is never given to the MCP server.
-12. **A person sees the effect before approving.** The dashboard's approval card shows the amount, payee, due date, and checking before → after, and warns below the buffer. The approve and sign-off routes refuse names that sound like agents, and every approval is recorded with the person's name (`payment_approved`, `ticket_resolved`).
-13. **Resolving follows a fixed desk rule** in the backend, not an agent's say-so:
+12. **The vendor hold, in code.** `get_vendor_lead_time` won't give a date for a vendor with an unpaid invoice, and both `propose_purchase_order` and `record_purchase` refuse to buy from it, so the shop never orders from a vendor that won't ship.
+13. **A person sees the effect before approving.** The dashboard's approval card shows the amount, payee, due date, and checking before → after, and warns below the buffer. The approve and sign-off routes refuse names that sound like agents, and every approval is recorded with the person's name (`payment_approved`, `ticket_resolved`).
+14. **Resolving follows a fixed desk rule** in the backend, not an agent's say-so:
     - **Nothing waiting:** a ticket is resolved automatically only when the team finishes with nothing waiting on a person.
     - **Payment waiting:** if a payment is waiting, the ticket is resolved only after a person approves it.
     - **Anything else:** a person signs off.

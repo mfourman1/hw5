@@ -46,14 +46,15 @@ export interface LastRun {
   agents: AgentTurn[];
 }
 
+/** Something waiting for a person: a bill to pay (invoice, rent) or a purchase order to approve. */
 export interface PaymentProposal {
   ticket_id: number;
-  kind: "invoice" | "rent";
-  ref_id: number;
+  kind: "invoice" | "rent" | "purchase";
+  ref_id: number; // invoice id, lease id, or purchase order id
   payee: string;
   amount: number;
-  due_date: string;
-  days_until_due: number;
+  due_date: string | null;
+  days_until_due: number | null;
   balance_before: number;
   balance_after: number;
   below_cash_buffer: boolean;
@@ -61,6 +62,12 @@ export interface PaymentProposal {
   ok: boolean;
   problems: string[];
   proposal_note: string;
+  // purchase orders only
+  sku?: string;
+  size?: string;
+  qty?: number;
+  unit_cost?: number;
+  expected_arrival?: string | null;
 }
 
 export interface Ticket {

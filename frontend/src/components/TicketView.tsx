@@ -153,16 +153,31 @@ function PaymentCard({ pay, ...p }: { pay: PaymentProposal } & Props) {
   const ready = p.approver.trim().length >= 3;
   return (
     <div className={`pay-card${pay.below_cash_buffer ? " warn" : ""}`}>
-      <div className="pay-title">Approve payment</div>
+      <div className="pay-title">{pay.kind === "purchase" ? "Approve purchase order" : "Approve payment"}</div>
       <div className="pay-amount">{money(pay.amount)}</div>
       <div className="pay-to">
-        to <strong>{pay.payee}</strong> · {pay.kind === "rent" ? `rent, lease ${pay.ref_id}` : `invoice ${pay.ref_id}`}
+        to <strong>{pay.payee}</strong> ·{" "}
+        {pay.kind === "rent"
+          ? `rent, lease ${pay.ref_id}`
+          : pay.kind === "purchase"
+            ? `PO ${pay.ref_id}: ${pay.qty} × ${pay.sku} size ${pay.size} at ${money(pay.unit_cost ?? 0)}`
+            : `invoice ${pay.ref_id}`}
       </div>
       <dl className="pay-facts">
-        <dt>Due</dt>
-        <dd>
-          {pay.due_date} ({pay.days_until_due < 0 ? `${-pay.days_until_due} days late` : `${pay.days_until_due} days left`})
-        </dd>
+        {pay.due_date && pay.days_until_due != null && (
+          <>
+            <dt>Due</dt>
+            <dd>
+              {pay.due_date} ({pay.days_until_due < 0 ? `${-pay.days_until_due} days late` : `${pay.days_until_due} days left`})
+            </dd>
+          </>
+        )}
+        {pay.kind === "purchase" && pay.expected_arrival && (
+          <>
+            <dt>Arrives</dt>
+            <dd>{pay.expected_arrival} at the earliest</dd>
+          </>
+        )}
         <dt>Checking</dt>
         <dd className="num">
           {money(pay.balance_before)} → <strong>{money(pay.balance_after)}</strong>
@@ -172,9 +187,11 @@ function PaymentCard({ pay, ...p }: { pay: PaymentProposal } & Props) {
       {!pay.ok && <div className="pay-warn">{pay.problems.join(" ")}</div>}
       <Approver approver={p.approver} setApprover={p.setApprover} />
       <button className="btn pay" onClick={p.onApprove} disabled={!ready || !pay.ok || p.busy !== null}>
-        {p.busy === "approve" ? "Paying…" : `Approve & pay ${money(pay.amount)}`}
+        {p.busy === "approve" ? "Paying…" : `Approve & ${pay.kind === "purchase" ? "buy" : "pay"} ${money(pay.amount)}`}
       </button>
-      <p className="fine">Agents can only propose a payment. Your approval is what records it and moves the cash.</p>
+      <p className="fine">
+        Agents can only propose a {pay.kind === "purchase" ? "purchase" : "payment"}. Your approval is what records it and moves the cash.
+      </p>
     </div>
   );
 }

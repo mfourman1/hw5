@@ -1,7 +1,7 @@
 # Campus Customs MCP server
 
 **What it is for:** This FastMCP server (`server.py`, server name `campus-customs`) is the shared toolbox for Campus Customs.
-- **Who uses it:** the five agents (Boss, Inventory, Accounting, Facilities, Customer Service) and the vibe coder, through `.mcp.json`.
+- **Who uses it:** the five agents (Boss, Inventory, Accounting, Facilities, Customer Service) and the vibe coder, through `.mcp.json`. It has 19 tools.
 - **What the tools do:** look up the shop's real stock, prices, tickets, bills, rent and cash. They also record the team's work on tickets.
 - **No made-up data:** if something is not in the database, a tool returns `found: false`.
 
@@ -15,7 +15,7 @@
 | `get_lease(lease_id)` | `leases`, `desk` | Landlord, monthly rent, next due date, and days until rent is due |
 | `get_pricing(sku)` | `pricing` | List price, unit cost, and margin per unit |
 | `get_ticket_urgency(ticket_id)` | `tickets`, `invoices`, `leases`, `desk` | The ticket's earliest deadline: a linked due date, or for inquiries a 24-hour reply-by (`reply_by`). Returns days left and an urgency label: overdue, due_soon (0–3 days), upcoming, no_deadline, or not_open. |
-| `get_vendor_lead_time(vendor_id, specialty)` | `vendors`, `desk` | A vendor's lead days and earliest arrival if ordered on the shop's date |
+| `get_vendor_lead_time(vendor_id, specialty)` | `vendors`, `invoices`, `desk` | A vendor's lead days and earliest arrival if ordered on the shop's date. A vendor with an unpaid invoice is `on_hold`: it ships nothing new, so there is no date until the invoice is paid. |
 | `list_open_tickets()` | `tickets`, `desk` | Every ticket that is not resolved or closed, oldest first |
 | `list_tickets()` | `tickets`, `desk` | Every ticket, resolved ones too, with `open` true or false and its `source` (used by the backend's ticket board) |
 | `set_ticket_source(ticket_id, source)` | `tickets` | **Writes.** Records where a ticket came from: online, in_person or phone; null clears it. Adds the `source` column to the working database the first time it's used. |
@@ -27,8 +27,11 @@
 | `propose_payment(ticket_id, kind, ref_id, amount, proposed_by, reason)` | `tickets`, `invoices`, `vendors`, `leases`, `cash_accounts`, `desk` | **Writes a note only.** Checks a bill, then adds a "PAYMENT PROPOSED" note and sets the ticket to awaiting_approval. Moves no money. |
 | `list_payment_proposals()` | `tickets`, `invoices`, `vendors`, `leases`, `cash_accounts`, `desk` | Proposed payments that are still unpaid, each with the checks `record_payment` will run (used by the backend's approve routes) |
 | `record_payment(kind, ref_id, amount, approved_by, account)` | `payments`, `cash_accounts`, `invoices` or `leases`, `tickets`, `desk` | **Writes. Human manager only.** No agent is given this tool. Pays an approved bill and refuses an approver that names an agent. The backend calls it from `POST /api/payments/approve`. |
+| `propose_purchase_order(ticket_id, vendor_id, sku, size, qty, proposed_by, reason)` | `vendors`, `pricing`, `inventory`, `invoices`, `cash_accounts`, `purchase_orders`, `tickets`, `desk` | **Writes a proposal only.** Proposes buying stock at unit cost. Refuses a vendor on hold or more than checking holds. Adds a "PURCHASE PROPOSED" note and sets the ticket to awaiting_approval. Moves no money. |
+| `list_purchase_orders(status)` | `purchase_orders` | Proposed and approved purchase orders, with what approval would do to cash |
+| `record_purchase(po_id, approved_by, account)` | `purchase_orders`, `payments`, `cash_accounts`, `tickets`, `desk` | **Writes. Human manager only.** Approves and pays a purchase order (`payments.kind = 'purchase'`) after re-checking the vendor hold and cash. The backend calls it from `POST /api/payments/approve`. |
 
-The shop rules the tools enforce (discount limits, the cash buffer) are constants at the top of `server.py`. They must match `backend/prompts/shop_rules.md`.
+The shop rules the tools enforce (discount limits, the cash buffer, the vendor hold) are constants at the top of `server.py`. They must match `backend/prompts/shop_rules.md`.
 
 ## Setup
 

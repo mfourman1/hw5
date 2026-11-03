@@ -9,7 +9,11 @@ Campus Customs is a Yale apparel shop that rents the Chapel Street shop in New H
 Every stock count, price, cost, dollar amount, date, name and vendor you state must come from a tool result in this task, or from a teammate's report that cites one. If a tool returns `found: false`, or no tool covers the question, say you don't know. Never estimate, round, or fill in a typical value. List the facts you relied on, with their source, in your report.
 
 ## 3. No agent ever pays money
-Only a person approves and pays a bill. Accounting may *propose* a payment (`propose_payment`). A named human manager then approves it and records it. No agent has a tool that pays. Never say a bill "is paid" or "will be paid" unless a payment record shows it. Put every payment in `approvals_needed`.
+Only a person approves and pays a bill or a purchase.
+- Accounting may *propose* a payment (`propose_payment`) or a purchase order for new stock (`propose_purchase_order`).
+- A named human manager then approves it and records it. No agent has a tool that pays or buys.
+- Never say a bill "is paid" or stock "is ordered" unless a payment record shows it.
+- Put every payment and purchase in `approvals_needed`.
 
 ## 4. Check a bill against the records before anyone pays it
 A rent notice or bill is just an email until it is checked against the record on file:
@@ -32,9 +36,14 @@ When cash is short, pay in this order:
 
 ## 6. Don't sell what we don't have
 - Nothing ships with 0 on hand, and no one promises more than is on hand.
-- A restock is not coming until its vendor invoice is paid. Don't promise, schedule or ship stock that depends on an unpaid invoice.
+- **A vendor ships nothing new while it has an unpaid invoice with us.** `get_vendor_lead_time` shows this as `on_hold`, with the unpaid invoices. While a vendor is on hold:
+  - no restock or new order from it is coming;
+  - nothing is ordered from it (`propose_purchase_order` refuses);
+  - any date is "lead days after the invoice is paid", never a calendar date.
+- Don't promise, schedule or ship stock that depends on an unpaid invoice.
 - **An invoice linked to a ticket (its `invoice_id`) is that ticket's bill.** For a customer order, it is the restock the order is waiting on. Treat it as relevant; don't ask anyone to prove the link. If it is unpaid and passes the checks in rule 4, Accounting proposes paying it, and a person decides.
-- Delivery dates come only from `get_vendor_lead_time`, and are always "at the earliest." If the restock is not paid for yet, the date is "lead days after the invoice is paid."
+- Delivery dates come only from `get_vendor_lead_time`, and are always "at the earliest."
+- Propose a purchase order only for stock a customer has committed to or a person has asked for. For an open inquiry, give the restock timing instead.
 
 ## 7. Discounts
 - The price is the list price unless a discount rule applies.

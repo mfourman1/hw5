@@ -7,6 +7,6 @@ SPEC = AgentSpec(
     title="Inventory",
     prompt_file="inventory.md",
     handles="stock on hand by product and size, shortfalls, whether a restock is really coming, "
-    "and vendor lead times / earliest arrival dates",
-    mcp_tools=("get_ticket", "check_stock", "get_vendor_lead_time", "get_invoice", "add_ticket_note"),
+    "vendor lead times / earliest arrival dates, and which vendor can restock (and whether it is on hold)",
+    mcp_tools=("get_ticket", "check_stock", "get_vendor_lead_time", "get_invoice", "list_purchase_orders", "add_ticket_note"),
 )

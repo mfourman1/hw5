@@ -7,9 +7,14 @@ guessing.
 
 The shop's "today" is desk.date_today in the database, not the computer's clock.
 
-Most tools only read. Three write: add_ticket_note and propose_payment (agents may use
-them) and record_payment, which moves money and is for a human manager only; the
-agent team is never given it, and it refuses an approver that names an agent.
+Most tools only read. The ones that write:
+    add_ticket_note, propose_payment, propose_purchase_order   agents may use these; they move no money
+    set_ticket_source                                          the desk (a person) records where a ticket came from
+    record_payment, record_purchase                            move money: a human manager only. The agent team
+                                                               is never given them, and they refuse an approver
+                                                               that names an agent.
+A vendor ships nothing new while it has an unpaid invoice with us (get_vendor_lead_time
+reports it as on_hold, and the purchase tools refuse to buy from it).
 
 Environment (optional)
     CAMPUS_CUSTOMS_DB          another database file to use (for tests)
@@ -67,9 +72,9 @@ TICKET_STATUSES = (
 CLOSED_STATUSES = ("resolved", "closed")
 PAYMENT_KINDS = ("invoice", "rent")
 MAX_NOTE_CHARS = 500
-# Only propose_payment and record_payment write notes that start with these, so a plain
-# note can't pass itself off as a payment proposal or a payment.
-RESERVED_NOTE_PREFIXES = ("PAYMENT PROPOSED", "PAID")
+# Only the payment and purchase tools write notes that start with these, so a plain note
+# can't pass itself off as a proposal, a payment or a purchase.
+RESERVED_NOTE_PREFIXES = ("PAYMENT PROPOSED", "PAID", "PURCHASE PROPOSED", "PURCHASED")
 # How propose_payment writes a proposal; list_payment_proposals reads it back.
 PROPOSAL_PATTERN = re.compile(
     r"PAYMENT PROPOSED: \$(?P<amount>[\d,]+\.\d{2}) to (?P<payee>.+?) for (?P<kind>invoice|rent) (?P<ref_id>\d+) from"
@@ -301,15 +306,50 @@ def get_ticket_urgency(ticket_id: int) -> dict:
     return result
 
 
+def _unpaid_invoices(conn: sqlite3.Connection, vendor_id: int) -> list[dict]:
+    """A vendor's invoices that are not paid yet. While there are any, it ships nothing new."""
+    rows = conn.execute(
+        "SELECT id, amount, due_date, description FROM invoices WHERE vendor_id = ? AND status != 'paid' ORDER BY id",
+        (vendor_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _vendor_view(conn: sqlite3.Connection, vendor: sqlite3.Row, today: date) -> dict:
+    unpaid = _unpaid_invoices(conn, vendor["id"])
+    arrival = (today + timedelta(days=vendor["lead_days"])).isoformat()
+    view = {
+        "vendor_id": vendor["id"],
+        "name": vendor["name"],
+        "specialty": vendor["specialty"],
+        "lead_days": vendor["lead_days"],
+        "on_hold": bool(unpaid),
+        "unpaid_invoices": unpaid,
+        "earliest_arrival": None if unpaid else arrival,
+    }
+    if unpaid:
+        ids = ", ".join(str(i["id"]) for i in unpaid)
+        view["hold_reason"] = (
+            f"{vendor['name']} has unpaid invoice {ids}, so it ships nothing new until that is paid."
+        )
+        view["earliest_arrival_after_payment"] = (
+            f"{vendor['lead_days']} days after invoice {ids} is paid ({arrival} if paid on the shop's date)"
+        )
+    return view
+
+
 @mcp.tool
 def get_vendor_lead_time(vendor_id: int | None = None, specialty: str | None = None) -> dict:
-    """How long a vendor takes to deliver, and the earliest arrival if ordered on the shop's date.
+    """How long a vendor takes to deliver, whether it is on hold, and the earliest arrival.
 
     Pass vendor_id when a ticket's invoice names the vendor, or a specialty word
     ("apparel", "mugs", "courier") to find vendors when none is linked; vendor_id wins
-    if both are given. Returns each matching vendor's name, specialty, lead_days and
-    earliest_arrival (desk.date_today plus lead_days, counted as calendar days), fastest
-    first. If no vendor matches, returns found = false.
+    if both are given. Returns each matching vendor's name, specialty and lead_days,
+    fastest first. **A vendor ships nothing new while it has an unpaid invoice with us**:
+    then on_hold is true, unpaid_invoices lists them, earliest_arrival is null and
+    earliest_arrival_after_payment says when stock could come once they are paid.
+    Otherwise earliest_arrival is desk.date_today plus lead_days (calendar days). If no
+    vendor matches, returns found = false.
     """
     if vendor_id is None and not (specialty and specialty.strip()):
         raise ToolError("Pass a vendor_id or a specialty word to look up.")
@@ -322,23 +362,11 @@ def get_vendor_lead_time(vendor_id: int | None = None, specialty: str | None = N
                 "SELECT * FROM vendors WHERE specialty LIKE ? ORDER BY lead_days, id",
                 (f"%{specialty.strip()}%",),
             ).fetchall()
-    if not rows:
-        lookup = f"id {vendor_id}" if vendor_id is not None else f"specialty '{specialty.strip()}'"
-        return {"found": False, "message": f"No vendor with {lookup}."}
-    return {
-        "found": True,
-        "shop_date": today.isoformat(),
-        "vendors": [
-            {
-                "vendor_id": r["id"],
-                "name": r["name"],
-                "specialty": r["specialty"],
-                "lead_days": r["lead_days"],
-                "earliest_arrival": (today + timedelta(days=r["lead_days"])).isoformat(),
-            }
-            for r in rows
-        ],
-    }
+        if not rows:
+            lookup = f"id {vendor_id}" if vendor_id is not None else f"specialty '{specialty.strip()}'"
+            return {"found": False, "message": f"No vendor with {lookup}."}
+        vendors = [_vendor_view(conn, r, today) for r in rows]
+    return {"found": True, "shop_date": today.isoformat(), "vendors": vendors}
 
 
 # --- Tickets ----------------------------------------------------------------------------
@@ -428,7 +456,7 @@ def add_ticket_note(ticket_id: int, author: str, note: str, new_status: str | No
     if new_status is not None and new_status not in TICKET_STATUSES:
         raise ToolError(f"new_status must be one of: {', '.join(TICKET_STATUSES)}.")
     if note.upper().startswith(RESERVED_NOTE_PREFIXES):
-        raise ToolError("Notes starting with PAYMENT PROPOSED or PAID are written only by the payment tools.")
+        raise ToolError("Notes starting with PAYMENT PROPOSED, PAID, PURCHASE PROPOSED or PURCHASED are written only by the payment and purchase tools.")
 
     with _connect(write=not READ_ONLY) as conn:
         row = conn.execute("SELECT status FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
@@ -773,6 +801,227 @@ def record_payment(kind: str, ref_id: int, amount: float, approved_by: str, acco
         "below_cash_buffer": check["below_cash_buffer"],
         "lease_next_due": next_due,
         "tickets_noted": tickets,
+    }
+
+
+# --- Purchase orders --------------------------------------------------------------------
+# A purchase order buys new stock from a vendor. The original database has no table for
+# them, so purchase_orders is created in the working copy the first time one is proposed.
+
+PO_TABLE = """CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INTEGER PRIMARY KEY,
+    ticket_id INTEGER,
+    vendor_id INTEGER NOT NULL REFERENCES vendors(id),
+    sku TEXT NOT NULL,
+    size TEXT NOT NULL,
+    qty INTEGER NOT NULL,
+    unit_cost REAL NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL,
+    proposed_by TEXT NOT NULL,
+    reason TEXT,
+    approved_by TEXT,
+    created_at TEXT NOT NULL,
+    approved_at TEXT,
+    expected_arrival TEXT
+)"""
+
+
+def _has_po_table(conn: sqlite3.Connection) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'purchase_orders'"
+    ).fetchone() is not None
+
+
+def _purchase_check(conn: sqlite3.Connection, vendor_id: int, sku: str, size: str, qty: int,
+                    account: str = "checking") -> dict:
+    """What buying this stock would cost and do, and every reason it can't be bought now."""
+    today = _shop_today(conn)
+    vendor = conn.execute("SELECT * FROM vendors WHERE id = ?", (vendor_id,)).fetchone()
+    if vendor is None:
+        return {"ok": False, "problems": [f"No vendor with id {vendor_id}."]}
+    price = conn.execute("SELECT unit_cost FROM pricing WHERE sku = ?", (sku,)).fetchone()
+    if price is None:
+        return {"ok": False, "problems": [f"No price for {sku}, so its cost is unknown."]}
+    problems: list[str] = []
+    if qty < 1:
+        problems.append("qty must be at least 1.")
+    if conn.execute("SELECT 1 FROM inventory WHERE sku = ? AND size = ?", (sku, size)).fetchone() is None:
+        problems.append(f"{sku} isn't a product the shop stocks in size {size}.")
+    unpaid = _unpaid_invoices(conn, vendor_id)
+    if unpaid:
+        ids = ", ".join(str(i["id"]) for i in unpaid)
+        problems.append(f"{vendor['name']} has unpaid invoice {ids} and ships nothing new until it is paid. Pay it first.")
+    amount = _money(price["unit_cost"] * qty)
+    cash = conn.execute("SELECT balance FROM cash_accounts WHERE name = ?", (account,)).fetchone()
+    balance = cash["balance"] if cash else None
+    after = _money(balance - amount) if cash else None
+    if cash is None:
+        problems.append(f"No cash account named '{account}'.")
+    elif after < 0:
+        problems.append(f"Not enough cash: {account} has ${balance:,.2f} and this costs ${amount:,.2f}.")
+    return {
+        "ok": not problems,
+        "problems": problems,
+        "vendor_id": vendor_id,
+        "vendor": vendor["name"],
+        "lead_days": vendor["lead_days"],
+        "sku": sku,
+        "size": size,
+        "qty": qty,
+        "unit_cost": price["unit_cost"],
+        "amount": amount,
+        "account": account,
+        "balance_before": balance,
+        "balance_after": after,
+        "below_cash_buffer": after is not None and after < CASH_BUFFER,
+        "cash_buffer": CASH_BUFFER,
+        "expected_arrival": (today + timedelta(days=vendor["lead_days"])).isoformat(),
+        "shop_date": today.isoformat(),
+    }
+
+
+@mcp.tool
+def propose_purchase_order(ticket_id: int, vendor_id: int, sku: str, size: str, qty: int,
+                           proposed_by: str, reason: str) -> dict:
+    """Propose buying new stock from a vendor, for a human manager to approve. Moves no money.
+
+    The cost is qty times the shop's unit_cost for the sku (pricing table). Checks that the
+    vendor exists and has no unpaid invoice (a vendor ships nothing new until it is paid),
+    that the shop stocks the sku in that size, and that checking can cover it. Shows the
+    balance after (below_cash_buffer flags a balance under the buffer). If every check
+    passes, saves the purchase order as "proposed", adds a "PURCHASE PROPOSED" note to the
+    ticket and sets it to awaiting_approval; otherwise proposed = false with the problems.
+    Only propose stock a customer has asked for or a person has requested.
+    """
+    sku, size = sku.strip().upper(), size.strip().upper()
+    proposed_by, reason = " ".join(proposed_by.split()), " ".join(reason.split())[:200]
+    if not proposed_by:
+        raise ToolError("proposed_by is required.")
+    with _connect(write=not READ_ONLY) as conn:
+        ticket = conn.execute("SELECT status FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+        if ticket is None:
+            return {"found": False, "ticket_id": ticket_id, "message": f"No ticket with id {ticket_id}."}
+        if ticket["status"] in CLOSED_STATUSES:
+            return {"proposed": False, "ticket_id": ticket_id, "problems": [f"Ticket {ticket_id} is {ticket['status']}."]}
+        check = _purchase_check(conn, vendor_id, sku, size, qty)
+        if check["ok"] and _has_po_table(conn) and conn.execute(
+            "SELECT 1 FROM purchase_orders WHERE ticket_id = ? AND vendor_id = ? AND sku = ? AND size = ? AND status = 'proposed'",
+            (ticket_id, vendor_id, sku, size),
+        ).fetchone():
+            check["problems"].append("A purchase order for this stock is already waiting for a person.")
+            check["ok"] = False
+        if not check["ok"]:
+            return {"proposed": False, "ticket_id": ticket_id, **check}
+
+        def note(po_id: object) -> str:
+            return (
+                f"PURCHASE PROPOSED: PO {po_id}, {qty} x {sku} size {size} from {check['vendor']} at "
+                f"${check['unit_cost']:,.2f} = ${check['amount']:,.2f}, leaving ${check['balance_after']:,.2f}"
+                f"{' (BELOW the cash buffer)' if check['below_cash_buffer'] else ''}. "
+                f"Reason: {reason or 'not given'}. Awaiting human approval."
+            )
+
+        if READ_ONLY:
+            return {"proposed": False, "dry_run": True, "ticket_id": ticket_id, "would_add_note": note("(new)"), **check}
+        conn.execute(PO_TABLE)
+        po_id = conn.execute(
+            "INSERT INTO purchase_orders (ticket_id, vendor_id, sku, size, qty, unit_cost, amount, status, "
+            "proposed_by, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?, ?)",
+            (ticket_id, vendor_id, sku, size, qty, check["unit_cost"], check["amount"], proposed_by, reason,
+             check["shop_date"]),
+        ).lastrowid
+        line = _ticket_note(conn, ticket_id, proposed_by, note(po_id), "awaiting_approval")
+    return {"proposed": True, "requires_human_approval": True, "po_id": po_id, "ticket_id": ticket_id,
+            "ticket_note": line, **check}
+
+
+@mcp.tool
+def list_purchase_orders(status: str | None = None) -> dict:
+    """List purchase orders (all, or only "proposed" / "approved"), newest first.
+
+    A proposed order also carries the checks record_purchase will run now (ok, problems,
+    balance_after, below_cash_buffer), so a person sees them before approving.
+    """
+    with _connect() as conn:
+        if not _has_po_table(conn):
+            return {"count": 0, "purchase_orders": []}
+        rows = conn.execute(
+            "SELECT * FROM purchase_orders" + (" WHERE status = ?" if status else "") + " ORDER BY id DESC",
+            (status,) if status else (),
+        ).fetchall()
+        orders = []
+        for r in rows:
+            order = dict(r)
+            if r["status"] == "proposed":
+                check = _purchase_check(conn, r["vendor_id"], r["sku"], r["size"], r["qty"])
+                order.update({k: check.get(k) for k in ("ok", "problems", "balance_before", "balance_after",
+                                                         "below_cash_buffer", "cash_buffer", "vendor", "expected_arrival")})
+            orders.append(order)
+    return {"count": len(orders), "purchase_orders": orders}
+
+
+@mcp.tool
+def record_purchase(po_id: int, approved_by: str, account: str = "checking") -> dict:
+    """HUMAN MANAGER ONLY: approve and pay a proposed purchase order. The agent team never gets this tool.
+
+    Re-runs the purchase checks (vendor has no unpaid invoice, enough cash, never below
+    zero), then adds the payment to payments (kind "purchase", ref_id = po_id, dated the
+    shop's date, with approved_by), takes the amount out of the cash account, marks the
+    order approved with its expected arrival, and adds a "PURCHASED" note to its ticket
+    (a ticket that was awaiting_approval goes back to in_progress). Stock is added to
+    inventory when it arrives, not now. approved_by must be a person's full name.
+    """
+    approver = " ".join(approved_by.split())
+    if not approver or set(re.findall(r"[a-z]+", approver.lower())) & AGENT_WORDS:
+        raise ToolError("approved_by must be the name of the person who approved this purchase, not an agent.")
+    if READ_ONLY:
+        raise ToolError("Dry run: the server is read-only, so no purchase was recorded.")
+    with _connect(write=True) as conn:
+        order = conn.execute("SELECT * FROM purchase_orders WHERE id = ?", (po_id,)).fetchone() if _has_po_table(conn) else None
+        if order is None:
+            return {"purchased": False, "problems": [f"No purchase order with id {po_id}."]}
+        if order["status"] != "proposed":
+            return {"purchased": False, "problems": [f"Purchase order {po_id} is already {order['status']}."]}
+        check = _purchase_check(conn, order["vendor_id"], order["sku"], order["size"], order["qty"], account)
+        if not check["ok"]:
+            return {"purchased": False, "po_id": po_id, **check}
+        today = check["shop_date"]
+        payment_id = conn.execute(
+            "INSERT INTO payments (kind, ref_id, amount, account, paid_at, approved_by) VALUES ('purchase', ?, ?, ?, ?, ?)",
+            (po_id, check["amount"], account, today, approver),
+        ).lastrowid
+        conn.execute("UPDATE cash_accounts SET balance = ?, date = ? WHERE name = ?", (check["balance_after"], today, account))
+        conn.execute(
+            "UPDATE purchase_orders SET status = 'approved', approved_by = ?, approved_at = ?, expected_arrival = ? WHERE id = ?",
+            (approver, today, check["expected_arrival"], po_id),
+        )
+        if order["ticket_id"] is not None:
+            _ticket_note(
+                conn, order["ticket_id"], approver,
+                f"PURCHASED: PO {po_id}, {order['qty']} x {order['sku']} size {order['size']} from {check['vendor']} for "
+                f"${check['amount']:,.2f} from {account}, approved by {approver} (payment {payment_id}). "
+                f"Expected {check['expected_arrival']} at the earliest.",
+            )
+            conn.execute(
+                "UPDATE tickets SET status = 'in_progress' WHERE id = ? AND status = 'awaiting_approval'",
+                (order["ticket_id"],),
+            )
+    return {
+        "purchased": True,
+        "po_id": po_id,
+        "payment_id": payment_id,
+        "ticket_id": order["ticket_id"],
+        "vendor": check["vendor"],
+        "sku": order["sku"],
+        "size": order["size"],
+        "qty": order["qty"],
+        "amount": check["amount"],
+        "account": account,
+        "approved_by": approver,
+        "balance_after": check["balance_after"],
+        "below_cash_buffer": check["below_cash_buffer"],
+        "expected_arrival": check["expected_arrival"],
     }
 
 

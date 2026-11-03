@@ -7,7 +7,7 @@ SPEC = AgentSpec(
     title="Accounting",
     prompt_file="accounting.md",
     handles="prices, bulk quotes and discounts, vendor invoices, cash on hand, and proposing "
-    "payments for a person to approve",
+    "payments and purchase orders for a person to approve",
     mcp_tools=(
         "get_ticket",
         "get_pricing",
@@ -15,6 +15,8 @@ SPEC = AgentSpec(
         "get_invoice",
         "get_cash_balance",
         "propose_payment",
+        "propose_purchase_order",
+        "list_purchase_orders",
         "add_ticket_note",
     ),
 )

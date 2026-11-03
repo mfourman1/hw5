@@ -52,7 +52,7 @@ export default function App() {
           time: e.time,
           amount: e.amount ?? 0,
           payee: e.payee ?? "",
-          label: `${e.kind === "rent" ? "Rent" : "Invoice " + e.ref_id} · ${e.payee}`,
+          label: `${e.kind === "rent" ? "Rent" : e.kind === "purchase" ? "Purchase order " + e.ref_id : "Invoice " + e.ref_id} · ${e.payee}`,
           approvedBy: e.approved_by ?? "",
           ticketId: e.ticket_id,
         })),
@@ -139,7 +139,7 @@ export default function App() {
     act("approve", async () => {
       const paid = await api.approve(ticket.id, approver.trim());
       toast(
-        `Paid ${money(paid.amount)} to ${paid.payee}.${paid.ticket_resolved ? ` Ticket #${ticket.id} is resolved.` : ""}`,
+        `${paid.kind === "purchase" ? "Bought" : "Paid"} ${money(paid.amount)} ${paid.kind === "purchase" ? "from" : "to"} ${paid.payee}.${paid.ticket_resolved ? ` Ticket #${ticket.id} is resolved.` : ""}`,
         "good",
       );
       await Promise.all([refresh(), refreshCashLog()]);

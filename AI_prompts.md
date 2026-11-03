@@ -310,7 +310,7 @@ Log of the prompts I typed to my vibe coder (Claude Code) for each problem, in m
 >
 > This link is the expected file layout. https://zlisto.github.io/mgt_409_fa26/hw5/p11.html
 
-*Note:* Problem 11 is allowed to contain the page URL.
+*Note:* I linked the page only for its file-tree diagram (the expected layout). The task itself is in my own words above.
 
 **Follow-up:** None needed.
 

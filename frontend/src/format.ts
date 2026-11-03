@@ -81,6 +81,8 @@ const TOOL_NAMES: Record<string, string> = {
   propose_payment: "propose payment",
   get_lease: "read lease",
   add_ticket_note: "write ticket note",
+  propose_purchase_order: "propose purchase",
+  list_purchase_orders: "list purchase orders",
 };
 
 export const toolName = (tool: string) => TOOL_NAMES[tool] ?? tool.replaceAll("_", " ");
@@ -105,6 +107,8 @@ export function toolArgs(tool: string, a: Record<string, unknown>): string {
       return a.vendor_id != null ? `vendor ${a.vendor_id}` : `“${a.specialty}”`;
     case "propose_payment":
       return `${money(Number(a.amount))} · ${a.kind} ${a.ref_id}`;
+    case "propose_purchase_order":
+      return `${a.qty} × ${a.sku} · ${a.size} · vendor ${a.vendor_id}`;
     case "add_ticket_note":
       return a.new_status ? `#${a.ticket_id} → ${String(a.new_status).replaceAll("_", " ")}` : `#${a.ticket_id}`;
     default:
@@ -140,8 +144,13 @@ export function toolResult(tool: string, raw: unknown): string | null {
       return `${money(r.monthly_rent)} to ${r.landlord}, due ${r.next_due}`;
     case "get_invoice":
       return `${money(r.amount)} · ${r.status}${r.overdue ? " · overdue" : ""}`;
-    case "get_vendor_lead_time":
-      return r.vendors?.length ? `${r.vendors[0].name}: ${r.vendors[0].lead_days} days → ${r.vendors[0].earliest_arrival}` : null;
+    case "get_vendor_lead_time": {
+      const v = r.vendors?.[0];
+      if (!v) return null;
+      return v.on_hold
+        ? `${v.name}: on hold (unpaid invoice ${v.unpaid_invoices.map((i: { id: number }) => i.id).join(", ")}) · ${v.lead_days} days after it's paid`
+        : `${v.name}: ${v.lead_days} days → ${v.earliest_arrival}`;
+    }
     case "get_pricing":
       return `list ${money(r.list_price)} · cost ${money(r.unit_cost)}`;
     case "quote_bulk_price":
@@ -152,6 +161,12 @@ export function toolResult(tool: string, raw: unknown): string | null {
       if (r.proposed) return `proposed · leaves ${money(r.balance_after)}`;
       if (r.dry_run) return "checks passed (practice run, not saved)";
       return r.problems?.length ? `refused: ${r.problems.join(" ")}` : null;
+    case "propose_purchase_order":
+      if (r.proposed) return `PO ${r.po_id} proposed · ${money(r.amount)} · leaves ${money(r.balance_after)}`;
+      if (r.dry_run) return "checks passed (practice run, not saved)";
+      return r.problems?.length ? `refused: ${r.problems.join(" ")}` : null;
+    case "list_purchase_orders":
+      return `${r.count} purchase order${r.count === 1 ? "" : "s"}`;
     case "add_ticket_note":
       return r.written ? "note saved" : r.dry_run ? "practice run, not saved" : null;
     case "list_open_tickets":

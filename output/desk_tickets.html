@@ -619,6 +619,11 @@
         <li class="ok">Every planned tool was used with the planned results. No payment tools were used.</li>
         <li class="ok">Urgency came back <code>due_soon</code> with the 24-hour reply-by, matching the updated plan.</li>
         <li class="diff">The draft gives no date for the other 12 hoodies. My plan expected "2026-09-05 at the earliest". Customer Service left it out on purpose, because no reprint has been ordered yet, which follows the "promise nothing unconfirmed" rule.</li>
+        <li class="diff"><strong>Found in a final review:</strong> Inventory reported "2026-09-05 at the earliest" for the 12 hoodies, and my plan said the same. But at that moment Bulldog Print Co still had unpaid invoice 501, and <strong>a vendor ships nothing new while it has an unpaid invoice</strong>. The right answer was "5 days after invoice 501 is paid".
+          <ul>
+            <li>I added this to shop rule 6, and <code>get_vendor_lead_time</code> now returns the vendor as <code>on_hold</code> with no date.</li>
+            <li>The club was never promised the date, because Customer Service left it out.</li>
+          </ul></li>
         <li class="diff">The plan said the ticket would sit at <code>waiting_on_customer</code>. Under the desk rule I added in Problem 8, a finished run with nothing waiting is resolved instead.</li>
       </ul></div>
     </div>
@@ -717,7 +722,7 @@
         <ul>
           <li><strong>Inventory:</strong> 8 of 20 on hand.</li>
           <li><strong>Accounting:</strong> took the quotes straight from <code>quote_bulk_price</code>: $1,160 at list, $1,044 at 10%, both <code>allowed</code>.</li>
-          <li><strong>Customer Service:</strong> made a judgment call I liked. It did <em>not</em> give the club "2026-09-05", because no reprint has been ordered yet. That is rule 6 working.</li>
+          <li><strong>Customer Service:</strong> made a judgment call I liked. It did <em>not</em> give the club "2026-09-05", because no reprint has been ordered yet. That is rule 6 working, and it turned out even more right than it looked. Bulldog Print Co was still on hold over unpaid invoice 501, so no date was possible yet. Inventory missed that, which a final review caught (see the <a href="#103">103 tab</a>).</li>
           <li><strong>Timing:</strong> the reply was drafted in under a minute, against a 24-hour reply window.</li>
         </ul>
         <p><strong>Human approval:</strong> none. The 10% discount is within Accounting's own limit, so the desk rule resolved it automatically.</p>
@@ -899,11 +904,12 @@
     <div class="idea">
       <h4>3. Planning cash and buying stock before we run out</h4>
       <p><strong>The situation:</strong> after this run, checking is <strong>$160.00</strong>, $340 below the buffer, and lease 1's next rent ($2,400) is due 2026-10-02 (<a href="#cash">Cash tab</a>). The AI Club still needs 12 more hoodies.</p>
-      <p><strong>Why the team can't do it today:</strong></p>
+      <p><strong>What the team can do now, and why it still isn't enough:</strong></p>
       <ul>
-        <li>It can only <em>pay existing</em> invoices. It can't place a purchase order with Bulldog Print Co.</li>
-        <li>It can't project how much cash will be on hand by October.</li>
-        <li>It can't say which sales would cover the $2,240 gap before rent.</li>
+        <li>After a final review, Accounting can <em>propose</em> a purchase order (<code>propose_purchase_order</code>) for a person to approve (<code>record_purchase</code>). The scenario expects Accounting to prepare purchase orders, and this closes that gap.</li>
+        <li>For the 12 hoodies, though, it would <strong>refuse today</strong>: 12 × $22 unit cost = $264, and checking has only $160.</li>
+        <li>The team still can't project how much cash will be on hand by October.</li>
+        <li>It can't say how to cover the $2,240 gap before rent. In this homework cash only goes out; there is no revenue.</li>
       </ul>
       <p><strong>What it would need:</strong></p>
       <ul>
@@ -911,9 +917,9 @@
           <ul>
             <li><code>list_upcoming_bills(days)</code>, which reads <code>leases.next_due</code> and open invoices;</li>
             <li><code>forecast_cash(days)</code>;</li>
-            <li><code>create_purchase_order(vendor_id, sku, size, qty)</code>, which creates an invoice that a person approves before it is sent.</li>
+            <li>purchase orders that wait for cash: today a purchase order is refused outright when cash is short. It could instead be queued until the forecast says it's affordable.</li>
           </ul></li>
-        <li><strong>Agents:</strong> a <strong>Finance/Purchasing</strong> agent that runs weekly. It would warn the Boss when the buffer is at risk, and turn shortfalls like #103's 12 hoodies into purchase orders for approval.</li>
+        <li><strong>Agents:</strong> a <strong>Finance/Purchasing</strong> agent that runs weekly. It would warn the Boss when the buffer is at risk, and queue shortfalls like #103's 12 hoodies as purchase orders until cash allows.</li>
       </ul>
     </div>
   </div>
