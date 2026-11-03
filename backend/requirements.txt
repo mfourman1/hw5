@@ -1,0 +1,6 @@
+# Back-end packages for the Campus Customs agent team (Homework 5).
+# PydanticAI is kept below 3.0 so a future major version can't change the agent API.
+pydantic-ai-slim[openai,mcp]>=2.55,<3
+python-dotenv>=1.2
+fastapi>=0.143
+uvicorn[standard]>=0.54

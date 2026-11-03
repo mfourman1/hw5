@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Customs: Resolved Board</title>
+<style>
+  :root { --navy: #00356b; --ink: #1b2230; --muted: #5b6475; --line: #e2dccd; --paper: #f3efe6; --good: #23784a; --bad: #b3261e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.55 "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif; color: var(--ink); background: var(--paper); }
+  header { background: linear-gradient(180deg, var(--navy), #002247); color: #fff; padding: 24px 36px; }
+  header h1 { margin: 0; font: 600 26px "Palatino Linotype", Georgia, serif; }
+  header p { margin: 6px 0 0; color: #c3d3e8; }
+  nav { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  nav a { color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,.12); font-weight: 600; font-size: 14px; }
+  nav a:hover { background: rgba(255,255,255,.22); }
+  main { max-width: 1240px; margin: 0 auto; padding: 26px 36px 60px; }
+  .card { background: #fffdf8; border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; margin-bottom: 26px; box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 18px rgba(0,0,0,.05); }
+  h2 { font: 600 21px "Palatino Linotype", Georgia, serif; margin: 0 0 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-size: 13px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .neg { color: var(--bad); font-weight: 600; }
+  tr.total td { border-top: 2px solid var(--ink); font-weight: 700; }
+  .resolved { display: inline-block; padding: 1px 9px; border-radius: 999px; background: #e3f2e8; color: var(--good); font-weight: 700; font-size: 12.5px; }
+  .caption { color: #3b4252; margin: 6px 0 14px; }
+  .caption ul { margin: 6px 0 0; padding-left: 20px; }
+  figure { margin: 0; }
+  figure a { display: block; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  figure img { display: block; width: 100%; height: auto; }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  code { font-family: Consolas, Menlo, monospace; font-size: 13px; background: #efeadf; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Campus Customs: Resolved Board</h1>
+  <p>Screenshots of the React desk (<code style="background:rgba(255,255,255,.14);color:#fff">frontend/</code>, http://localhost:5173) after the Problem 9 run. The database was reset to the original values, then all three tickets were run on the board until each was resolved (Nov 2, 2026, 8:50–8:57 PM ET).</p>
+  <nav>
+    <a href="#summary">Summary</a>
+    <a href="#t101">Ticket 101</a>
+    <a href="#t102">Ticket 102</a>
+    <a href="#t103">Ticket 103</a>
+  </nav>
+</header>
+
+<main>
+  <section class="card" id="summary">
+    <h2>Summary</h2>
+    <table>
+      <thead><tr><th>Ticket</th><th>Final status</th><th>How it was resolved</th><th>Human approval</th><th class="num">Cash change</th><th class="num">Checking after</th></tr></thead>
+      <tbody>
+        <tr><td colspan="5"><strong>Starting balance</strong> (after the reset)</td><td class="num">$3,400.00</td></tr>
+        <tr><td><strong>#103</strong> Bulk hoodie discount (inquiry)</td><td><span class="resolved">Resolved</span></td><td>The run finished with the Boss reporting <code>done</code> and nothing waiting on a person</td><td>None needed (the 10% quote is within Accounting's limit)</td><td class="num">$0.00</td><td class="num">$3,400.00</td></tr>
+        <tr><td><strong>#102</strong> Rent due</td><td><span class="resolved">Resolved</span></td><td>Mitchell Fourman approved the proposed rent</td><td>$2,400.00 to Elm City Properties (payment 1)</td><td class="num neg">−$2,400.00</td><td class="num">$1,000.00</td></tr>
+        <tr><td><strong>#101</strong> Bulldog tee</td><td><span class="resolved">Resolved</span></td><td>Mitchell Fourman approved the proposed invoice payment</td><td>$840.00 to Bulldog Print Co for invoice 501 (payment 2), below the $500 buffer</td><td class="num neg">−$840.00</td><td class="num">$160.00</td></tr>
+        <tr class="total"><td colspan="4">Ending balance (matches <code>cash_accounts</code>)</td><td class="num neg">−$3,240.00</td><td class="num">$160.00</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card" id="t101">
+    <h2>Ticket 101: Bulldog tee <span class="resolved">Resolved</span></h2>
+    <div class="caption">The Boss sent Inventory and Accounting out in the same step, then Customer Service.
+      <ul>
+        <li><strong>Inventory:</strong> found 0 of the size S tee on hand.</li>
+        <li><strong>Accounting:</strong> proposed paying the overdue $840 invoice 501, the reprint the order waits on, and flagged that it leaves checking at $160.</li>
+        <li><strong>Mitchell Fourman</strong> approved it, so the ticket is resolved and checking reads <strong>$160.00</strong>, below the buffer.</li>
+        <li><strong>Customer Service:</strong> its draft to Tauhid promises no date.</li>
+      </ul>
+      This ticket needed a second run after the rule about linked invoices was clarified (see <code>desk_tickets.html</code>).</div>
+    <figure>
+      <a href="resolved_board_images/ticket_101.png" target="_blank"><img src="resolved_board_images/ticket_101.png" alt="React board showing ticket 101 resolved, checking at $160.00"></a>
+      <figcaption>The queue shows 3/3 resolved. The team floor shows Facilities not needed. The live feed shows each step's time. "Your move" reads "Resolved after Mitchell Fourman approved the $840.00 payment to Bulldog Print Co."</figcaption>
+    </figure>
+  </section>
+
+  <section class="card" id="t102">
+    <h2>Ticket 102: Rent due <span class="resolved">Resolved</span></h2>
+    <div class="caption">
+      <ul>
+        <li><strong>Facilities first:</strong> it verified the email against lease 1 ($2,400 to Elm City Properties, due 2026-09-02).</li>
+        <li><strong>Accounting:</strong> proposed the rent, leaving $1,000.</li>
+        <li><strong>Mitchell Fourman</strong> approved it first, since rent comes first when cash is short. Checking dropped from $3,400 to $1,000, and the lease's next due date moved to 2026-10-02.</li>
+        <li><strong>Not needed:</strong> Inventory and Customer Service.</li>
+      </ul>
+    </div>
+    <figure>
+      <a href="resolved_board_images/ticket_102.png" target="_blank"><img src="resolved_board_images/ticket_102.png" alt="React board showing ticket 102 resolved"></a>
+      <figcaption>Facilities' and Accounting's wires are lit, Inventory and Customer Service are marked "Not needed", and the summary cards show each agent's part.</figcaption>
+    </figure>
+  </section>
+
+  <section class="card" id="t103">
+    <h2>Ticket 103: Bulk hoodie discount <span class="resolved">Resolved</span></h2>
+    <div class="caption">
+      <ul>
+        <li><strong>An inquiry with a 24-hour reply window.</strong></li>
+        <li><strong>Inventory:</strong> found 8 of the 20 size M hoodies on hand.</li>
+        <li><strong>Accounting:</strong> quoted $1,160 at list or $1,044 at 10% off. Both are allowed without a manager.</li>
+        <li><strong>Customer Service:</strong> drafted the reply to the Yale AI Club.</li>
+        <li><strong>Nothing needed a person</strong>, so the ticket was resolved when the run finished. No cash moved.</li>
+      </ul>
+    </div>
+    <figure>
+      <a href="resolved_board_images/ticket_103.png" target="_blank"><img src="resolved_board_images/ticket_103.png" alt="React board showing ticket 103 resolved with the draft reply"></a>
+      <figcaption>The draft reply to the Yale AI Club appears as a letter, and "What each agent did" shows Facilities as "Not needed".</figcaption>
+    </figure>
+  </section>
+</main>
+</body>
+</html>

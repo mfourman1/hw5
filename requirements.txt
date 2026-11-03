@@ -1,0 +1,9 @@
+# Everything the Campus Customs app needs, in one environment:
+#   python -m venv .venv  ->  activate it  ->  pip install -r requirements.txt
+# The backend (agents + FastAPI) and the MCP server both run on it.
+# PydanticAI is kept below 3.0 so a future major version can't change the agent API.
+pydantic-ai-slim[openai,mcp]>=2.55,<3
+fastmcp>=2.0.0
+python-dotenv>=1.2
+fastapi>=0.143
+uvicorn[standard]>=0.54

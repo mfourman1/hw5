@@ -1,0 +1,13 @@
+# Secrets: never commit a real .env (copy .env.example instead)
+.env
+.env.*
+!.env.example
+
+# Environments and build output
+.venv/
+**/.venv/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+*.tsbuildinfo
