@@ -180,6 +180,9 @@
   .idea p { margin: 4px 0; }
   .idea ul { margin: 4px 0; padding-left: 20px; }
   .reflect table td, .reflect table th { font-size: 13.5px; }
+  .mine { background: #f4f7fb; border-radius: 6px; padding: 8px 12px; margin: 6px 0 10px; }
+  .mine .who { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--navy); margin-bottom: 2px; }
+  .mine p { margin: 0; }
 
   .later { text-align: center; color: var(--muted); padding: 48px 24px; }
   .later h2 { color: var(--ink); margin: 0 0 6px; }
@@ -708,7 +711,7 @@
   <!-- ---------------------------------------------------------------- Q1 -->
   <div class="card reflect">
     <h2><span class="q-num">1</span>How did the agents perform on each ticket, and why?</h2>
-    <p class="lede">I judged each ticket on four things:</p>
+    <p class="lede">Each ticket starts with my own take, then the details from the audit trail. I judged each ticket on four things:</p>
     <ul>
       <li><strong>Right:</strong> is every number traceable to a tool?</li>
       <li><strong>Safe:</strong> did any agent move money or promise something we don't have?</li>
@@ -718,6 +721,7 @@
     <div class="per-ticket">
       <div>
         <h4>#101 Bulldog tee <span class="grade">A−: one clean run</span></h4>
+        <div class="mine"><span class="who">My take</span><p>The Accounting agent provided feedback based on the snapshot in time in which it worked. If you ran each ticket before approving any transactions, the projected remaining amount was incorrect. This was caught and handled appropriately, but it's a small flaw in the workflow of this ticket.</p></div>
         <p>One run, 17 requests. Everything on this ticket was linked, and the team followed every link.</p>
         <ul>
           <li><strong>Inventory:</strong> found 0 of the size S tee. It also saw that Bulldog Print Co is <em>on hold</em> until overdue invoice 501 is paid, so it gave no calendar date, only "5 days after payment".</li>
@@ -730,6 +734,7 @@
       </div>
       <div>
         <h4>#102 Rent due <span class="grade">A−: the right order, one extra courtesy</span></h4>
+        <div class="mine"><span class="who">My take</span><p>We did need to make some changes to avoid second lease checks. This was confirmed by the AI as well. The AI also reported that the Facilities agent took quite a while to complete its step (32 seconds). This should be investigated further to see if further iterations can shorten this step.</p></div>
         <p>16 requests. The team treated the landlord's email as an email, not a bill.</p>
         <ul>
           <li><strong>Facilities first:</strong> checked it against lease 1 ($2,400 to Elm City Properties, due 2026-09-02) and correctly treated the missing amount as "use the lease".</li>
@@ -743,6 +748,7 @@
       </div>
       <div>
         <h4>#103 Bulk hoodie discount <span class="grade mid">B: right facts, an unnecessary question</span></h4>
+        <div class="mine"><span class="who">My take</span><p>There was an issue here regarding the request for a discount within the range that the agents were able to handle on their own. We ran this several times, and there was a prompt for a 15% discount multiple times. I had to manually decline this and direct this threshold back to the agent team.</p></div>
         <p>The facts were all right:</p>
         <ul>
           <li>8 of 20 on hand;</li>
@@ -816,8 +822,10 @@
   <!-- ---------------------------------------------------------------- Q3 -->
   <div class="card reflect">
     <h2><span class="q-num">3</span>What would have been simpler as one agent with tools, and why?</h2>
+    <div class="mine"><span class="who">My answer</span><p>When the question is a linear one (where each step follows one after another without the need to go back and make an inquiry to an earlier step), there is no need to have multiple agents, and a single agent with tools avoids the several hand-off errors that we managed during this homework. Many changes in Q1 were issues with agent hand-off. The reason why having a team of agents is valuable is to handle more complex issues like those addressed in Ticket 101. By having the framework to handle more challenging problems, you have a much more versatile capability and can handle a wider range of issues.</p></div>
+    <p class="lede">The details behind it:</p>
     <div class="idea">
-      <h4>Tickets 102 and 103 were straight lines</h4>
+      <h4>Tickets 102 and 103 were linear</h4>
       <p>Both followed the same path: read the ticket, do two or three lookups, then propose or draft. Nothing needed a negotiation between departments.</p>
       <p>One agent holding the same MCP tools could have run ticket 103 as: <code>get_ticket</code> → <code>get_ticket_urgency</code> → <code>check_stock</code> + <code>get_vendor_lead_time</code> + two <code>quote_bulk_price</code> calls → draft. I'd expect about 5–6 model requests. The team used 18 on the first run and 26 over both.</p>
       <p>The team pays for every hand-off. Each agent gets its own prompt and tool list, and each re-reads the ticket: ticket 103 was read 4 times in one run (<code>get_ticket</code> by the Boss, Accounting, Inventory and Customer Service).</p>
@@ -842,7 +850,7 @@
         <li><strong>A clear audit trail:</strong> it records who did what.</li>
       </ul>
       <p>But most of the money safety is in the tools: payments only from the board's connection, a proposal required first, and discount limits in <code>quote_bulk_price</code>. A single agent would be almost as safe.</p>
-      <p><strong>My take:</strong> a "desk agent" for routine one-department tickets (rent checks, simple inquiries), escalating to the full team only when departments collide. Ticket 101 is that case: stock, a vendor hold, a vendor bill and the cash buffer all at once.</p>
+      <p><strong>In practice:</strong> a "desk agent" for routine one-department tickets (rent checks, simple inquiries), escalating to the full team only when departments collide. Ticket 101 is that case: stock, a vendor hold, a vendor bill and the cash buffer all at once.</p>
     </div>
   </div>
 
