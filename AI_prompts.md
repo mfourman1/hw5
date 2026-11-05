@@ -78,6 +78,18 @@ Log of the prompts I typed to my vibe coder (Claude Code) for each problem, in m
 
 *What was lacking:* The AI had written the five per-tool test questions itself, so I reviewed them and confirmed they were right before keeping them.
 
+> Please tell me if these are reasonable, and if so use them instead.
+>
+> 1. Is the white Bulldog tee in size M in stock?
+> 2. When does our shop owe rent, and how much?
+> 3. What is the list price and cost of the navy hoodie?
+> 4. How urgent is ticket 101?
+> 5. How long does it take for the vendor to deliver the navy hoodies?
+
+*What was lacking:* The test questions in output/mcp_smoke.json were still the AI's rather than mine, so I wrote my own question for each of the five tools and had them re-run against data/campus_customs_new.db.
+
+*Note:* I asked these on Nov 4, after Problem 9, so the outputs in output/mcp_smoke.json show the working copy after the tickets were resolved.
+
 ---
 
 ## Problem 5: Build the agent team and grow the MCP tools
